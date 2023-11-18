@@ -3,7 +3,7 @@
 import argparse
 import os
 import threading
-
+import configparser
 import pandas
 # importing datetime class from datetime library
 from datetime import datetime, timedelta
@@ -30,15 +30,18 @@ def execute(num):
     # Constructing a parser
     ap = argparse.ArgumentParser()
     # Adding arguments
-    ap.add_argument("-v", "--video", help="Video Stream")
-    ap.add_argument("-a", "--area", help="Contour area")
-    ap.add_argument("-m", "--method", help="Method")
+    ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
     args = vars(ap.parse_args())
 
+    parser = configparser.ConfigParser()
+    print("Reading config file " + args["config"])
+    parser.read(args["config"])
+
     # Capturing video
-    minimum = int(args["area"])  # Define Min Contour area
-    method = args["method"]
-    video_url = args["video"]
+    area = parser.getint("basic_config", "area")  # Define Min Contour area
+    method = parser.get("basic_config", "method")
+    video_url = parser.get("basic_config", "uri")
+    event_path = parser.get("basic_config", "event_path")
 
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
@@ -51,22 +54,23 @@ def execute(num):
     fps = video.get(cv2.CAP_PROP_FPS)
     print("FPS-" + str(fps))
 
-    m_time = os.path.getmtime(args["video"])
     # convert timestamp into DateTime object
-    original_time = datetime.fromtimestamp(m_time)
+    try:
+        original_time = datetime.fromtimestamp(os.path.getmtime(video_url))
+    except Exception as e:
+        original_time = datetime.now()
+        print(e)
+
     date_time = original_time
-    print('Modified on:', date_time)
 
     # Infinite while loop to treat stack of image as video
     while video.isOpened():
         # Reading frame(image) from video
         exists, frame = video.read()
-        sleeptime.sleep(0.250)
         if exists:
             frame_no += 1
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
             date_time = original_time + delta
-            print(date_time)
         else:
             if motion == 1:
                 time.append(date_time)
@@ -109,7 +113,7 @@ def execute(num):
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
         for contour in contours:
-            if cv2.contourArea(contour) < minimum:
+            if cv2.contourArea(contour) < area:
                 if motion == 1:
                     time.append(date_time)
                     motion = 0
@@ -130,6 +134,7 @@ def execute(num):
 
         # cv2.imshow('Original Frame', frame)
         # cv2.imshow(method, bgs)
+
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
             # if something is moving then it append the end time of movement
@@ -141,6 +146,8 @@ def execute(num):
     # Appending time of motion in DataFrame
     for i in range(0, len(time), 2):
         diff = time[i + 1] - time[i]
+        open(event_path + "start_" + time[i].strftime("%m-%d-%Y_%H:%M:%S"),'w')
+        open(event_path + "end_" + time[i + 1].strftime("%m-%d-%Y_%H:%M:%S"),'w')
         df = df._append({"Start": time[i], "End": time[i + 1], "Difference": diff}, ignore_index=True)
 
     # Creating a CSV file in which time of movements will be saved
@@ -149,15 +156,15 @@ def execute(num):
     cv2.destroyAllWindows()
 
 
-#if __name__ == '__main__':
+# if __name__ == '__main__':
 #    execute()
 
 if __name__ == '__main__':
     process_list = []
     print(datetime.now())
 
-    for num in range(0, 120):
-        process = threading.Thread(target=execute,args=([num]))
+    for num in range(0, 1):
+        process = threading.Thread(target=execute, args=([num]))
         process_list.append(process)
 
     for process in process_list:

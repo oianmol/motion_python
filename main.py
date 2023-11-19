@@ -45,21 +45,13 @@ def execute(num):
 
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
-    # get the video frame height and width
-    frame_width = int(video.get(3))
-    frame_height = int(video.get(4))
-    print("Frame_width: " + str(frame_width))
-    print("Frame_height: " + str(frame_height))
-
-    fps = video.get(cv2.CAP_PROP_FPS)
-    print("FPS-" + str(fps))
 
     # convert timestamp into DateTime object
     try:
         original_time = datetime.fromtimestamp(os.path.getmtime(video_url))
     except Exception as e:
         original_time = datetime.now()
-        print(e)
+        print("uri is not of file")
 
     date_time = original_time
 
@@ -67,6 +59,7 @@ def execute(num):
     while video.isOpened():
         # Reading frame(image) from video
         exists, frame = video.read()
+        # sleeptime.sleep(0.250)
         if exists:
             frame_no += 1
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
@@ -74,6 +67,7 @@ def execute(num):
         else:
             if motion == 1:
                 time.append(date_time)
+                open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
             break
 
         try:
@@ -116,11 +110,13 @@ def execute(num):
             if cv2.contourArea(contour) < area:
                 if motion == 1:
                     time.append(date_time)
+                    open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
                     motion = 0
                 continue
             if motion == 0:
                 motion = 1
                 time.append(date_time)
+                open(event_path + "start_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
 
             (x, y, w, h) = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 10), 1)
@@ -132,22 +128,24 @@ def execute(num):
             cv2.drawContours(mask, contour, -1, 255, 3)
             break
 
-        # cv2.imshow('Original Frame', frame)
-        # cv2.imshow(method, bgs)
+        cv2.imshow('Original Frame', frame)
+        cv2.imshow(method, bgs)
 
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
             # if something is moving then it append the end time of movement
             time.append(date_time)
+            open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
             print("quit manually")
             break
 
+    print("video released")
     video.release()
+    print("spitting motion event to data frame")
+
     # Appending time of motion in DataFrame
     for i in range(0, len(time), 2):
         diff = time[i + 1] - time[i]
-        open(event_path + "start_" + time[i].strftime("%m-%d-%Y_%H:%M:%S"),'w')
-        open(event_path + "end_" + time[i + 1].strftime("%m-%d-%Y_%H:%M:%S"),'w')
         df = df._append({"Start": time[i], "End": time[i + 1], "Difference": diff}, ignore_index=True)
 
     # Creating a CSV file in which time of movements will be saved
@@ -156,14 +154,14 @@ def execute(num):
     cv2.destroyAllWindows()
 
 
-# if __name__ == '__main__':
-#    execute()
-
 if __name__ == '__main__':
+    execute(0)
+
+if __name__ == '__ma in__':
     process_list = []
     print(datetime.now())
 
-    for num in range(0, 1):
+    for num in range(0, 3):
         process = threading.Thread(target=execute, args=([num]))
         process_list.append(process)
 

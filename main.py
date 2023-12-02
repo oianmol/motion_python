@@ -30,9 +30,23 @@ def execute(num):
     print("Method used for camera {num} is {method}".format(num=num, method=method))
 
     video_url = parser.get("camera_" + num, "uri")
+    print("video_url for camera {num} is {video_url}".format(num=num, video_url=video_url))
+
+    width = parser.getint("camera_" + num, "width")
+    height = parser.getint("camera_" + num, "height")
+    fps = parser.getint("camera_" + num, "fps")
+    print("Video Props {width} * {height} @ {fps} fps".format(width=width, height=height, fps=fps))
+
     event_path = parser.get("camera_" + num, "event_path")
     Path(event_path).mkdir(parents=True, exist_ok=True)
     print("Events will be written to {event_path} ".format(event_path=event_path))
+
+    output_motion_video = parser.getboolean("basic_config", "output_motion_video")
+    fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
+    print("video_writer created")
+    video_file_output = event_path + 'output.mp4'
+    print(video_file_output)
+    video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height))
 
     region_of_interest = parser.get("camera_" + num, "region_of_interest")
     print("region_of_interest for camera {num} {region_of_interest} ".format(num=num,
@@ -43,13 +57,12 @@ def execute(num):
 
     # convert timestamp into DateTime object
     original_time = datetime.now()
-
     date_time = original_time
 
     # Infinite while loop to treat stack of image as video
-    while video.isOpened():
+    while True:
         # Reading frame(image) from video
-        exists, frame = video.read()
+        exists, original_frame = video.read()
         # sleeptime.sleep(0.250)
         if exists:
             frame_no += 1
@@ -57,12 +70,14 @@ def execute(num):
             date_time = original_time + delta
         else:
             if motion == 1:
+                print("event ended {date_time}".format(date_time=date_time.strftime("%m-%d-%Y_%H:%M:%S:%f")))
                 open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
             break
 
         try:
-            frame = cv2.GaussianBlur(frame, (7, 7), 0)
+            frame = cv2.GaussianBlur(original_frame, (7, 7), 0)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
             # Converting color image to gray_scale image
             if method == 'MOG2':
                 bgs = mog2.apply(frame)
@@ -96,14 +111,19 @@ def execute(num):
                                        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
+        if output_motion_video and motion == 1:
+            video_writer.write(original_frame)
+
         for contour in contours:
             if cv2.contourArea(contour) < area:
                 if motion == 1:
+                    print("event ended {date_time}".format(date_time=date_time.strftime("%m-%d-%Y_%H:%M:%S:%f")))
                     open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
                     motion = 0
                 continue
             if motion == 0:
                 motion = 1
+                print("event started {date_time}".format(date_time=date_time.strftime("%m-%d-%Y_%H:%M:%S:%f")))
                 open(event_path + "start_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
 
             (x, y, w, h) = cv2.boundingRect(contour)
@@ -116,8 +136,12 @@ def execute(num):
             cv2.drawContours(mask, contour, -1, 255, 3)
             break
 
-        # cv2.imshow('Original Frame', frame)
-        # cv2.imshow(method, bgs)
+        if exists:
+            try:
+                cv2.imshow('Original Frame', frame)
+                cv2.imshow(method, bgs)
+            except Exception as e:
+                print(e)
 
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
@@ -127,11 +151,32 @@ def execute(num):
 
     print("video released")
     video.release()
+    if output_motion_video:
+        print("releasing video_writer")
+        video_writer.release()
     # Destroying all the windows
     cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
+    print(datetime.now())
+
+    # Constructing a parser
+    ap = argparse.ArgumentParser()
+    # Adding arguments
+    ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
+    args = vars(ap.parse_args())
+
+    parser = configparser.ConfigParser()
+    print("Reading config file " + args["config"])
+    parser.read(args["config"])
+
+    # Capturing video
+    cameras = parser.getint("basic_config", "cameras")
+    print("Total cameras " + str(cameras))
+    execute("0")
+
+if __name__ == '__mai n__':
     process_list = []
     print(datetime.now())
 

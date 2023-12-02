@@ -4,13 +4,13 @@ import argparse
 import os
 import threading
 import configparser
-import pandas
 # importing datetime class from datetime library
 from datetime import datetime, timedelta
 import time as sleeptime
 # importing OpenCV, time and Pandas library
 import cv2
 import numpy as np
+from pathlib import Path
 
 
 def execute(num):
@@ -18,40 +18,31 @@ def execute(num):
     mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
     knn = cv2.createBackgroundSubtractorKNN(detectShadows=False)
     cnt = cv2.bgsegm.createBackgroundSubtractorCNT(isParallel=True)
-    # Time of movement
-    time = []
-    # Initializing DataFrame, one column is start
-    # time and other column is end time
-    df = pandas.DataFrame(columns=["Start", "End", "Duration"])
+
     frame1 = None
     frame_no = 0
     motion = 0
 
-    # Constructing a parser
-    ap = argparse.ArgumentParser()
-    # Adding arguments
-    ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
-    args = vars(ap.parse_args())
+    area = parser.getint("camera_" + num, "area")  # Define Min Contour area
+    print("Contour area for camera {num} is {area}".format(num=num, area=area))
 
-    parser = configparser.ConfigParser()
-    print("Reading config file " + args["config"])
-    parser.read(args["config"])
-
-    # Capturing video
-    area = parser.getint("basic_config", "area")  # Define Min Contour area
     method = parser.get("basic_config", "method")
-    video_url = parser.get("basic_config", "uri")
-    event_path = parser.get("basic_config", "event_path")
+    print("Method used for camera {num} is {method}".format(num=num, method=method))
+
+    video_url = parser.get("camera_" + num, "uri")
+    event_path = parser.get("camera_" + num, "event_path")
+    Path(event_path).mkdir(parents=True, exist_ok=True)
+    print("Events will be written to {event_path} ".format(event_path=event_path))
+
+    region_of_interest = parser.get("camera_" + num, "region_of_interest")
+    print("region_of_interest for camera {num} {region_of_interest} ".format(num=num,
+                                                                             region_of_interest=region_of_interest))
 
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
 
     # convert timestamp into DateTime object
-    try:
-        original_time = datetime.fromtimestamp(os.path.getmtime(video_url))
-    except Exception as e:
-        original_time = datetime.now()
-        print("uri is not of file")
+    original_time = datetime.now()
 
     date_time = original_time
 
@@ -66,7 +57,6 @@ def execute(num):
             date_time = original_time + delta
         else:
             if motion == 1:
-                time.append(date_time)
                 open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
             break
 
@@ -109,13 +99,11 @@ def execute(num):
         for contour in contours:
             if cv2.contourArea(contour) < area:
                 if motion == 1:
-                    time.append(date_time)
                     open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
                     motion = 0
                 continue
             if motion == 0:
                 motion = 1
-                time.append(date_time)
                 open(event_path + "start_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
 
             (x, y, w, h) = cv2.boundingRect(contour)
@@ -128,41 +116,40 @@ def execute(num):
             cv2.drawContours(mask, contour, -1, 255, 3)
             break
 
-        cv2.imshow('Original Frame', frame)
-        cv2.imshow(method, bgs)
+        # cv2.imshow('Original Frame', frame)
+        # cv2.imshow(method, bgs)
 
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
-            # if something is moving then it append the end time of movement
-            time.append(date_time)
             open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
             print("quit manually")
             break
 
     print("video released")
     video.release()
-    print("spitting motion event to data frame")
-
-    # Appending time of motion in DataFrame
-    for i in range(0, len(time), 2):
-        diff = time[i + 1] - time[i]
-        df = df._append({"Start": time[i], "End": time[i + 1], "Difference": diff}, ignore_index=True)
-
-    # Creating a CSV file in which time of movements will be saved
-    df.to_csv(str(num) + method + "_motions.csv")
     # Destroying all the windows
     cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
-    execute(0)
-
-if __name__ == '__ma in__':
     process_list = []
     print(datetime.now())
 
-    for num in range(0, 3):
-        process = threading.Thread(target=execute, args=([num]))
+    # Constructing a parser
+    ap = argparse.ArgumentParser()
+    # Adding arguments
+    ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
+    args = vars(ap.parse_args())
+
+    parser = configparser.ConfigParser()
+    print("Reading config file " + args["config"])
+    parser.read(args["config"])
+
+    # Capturing video
+    cameras = parser.getint("basic_config", "cameras")
+    print("Total cameras " + str(cameras))
+    for num in range(0, cameras):
+        process = threading.Thread(target=execute, args=([str(num)]))
         process_list.append(process)
 
     for process in process_list:

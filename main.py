@@ -46,7 +46,7 @@ def execute(num):
     print("video_writer created")
     video_file_output = event_path + 'output.mp4'
     print(video_file_output)
-    video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height))
+    video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
 
     region_of_interest = parser.get("camera_" + num, "region_of_interest")
     print("region_of_interest for camera {num} {region_of_interest} ".format(num=num,
@@ -75,7 +75,7 @@ def execute(num):
             break
 
         try:
-            frame = cv2.GaussianBlur(original_frame, (7, 7), 0)
+            frame = cv2.GaussianBlur(original_frame, (21, 21), 0)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             # Converting color image to gray_scale image
@@ -112,7 +112,7 @@ def execute(num):
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
         if output_motion_video and motion == 1:
-            video_writer.write(original_frame)
+            video_writer.write(frame)
 
         for contour in contours:
             if cv2.contourArea(contour) < area:

@@ -75,7 +75,7 @@ def execute(num):
 
         try:
             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
-            frame = cv2.GaussianBlur(frame, (5, 5), 0)
+            frame = cv2.GaussianBlur(frame, (7, 7), 0)
             # Converting color image to gray_scale image
             if method == 'MOG2':
                 bgs = mog2.apply(frame)
@@ -171,7 +171,7 @@ if __name__ == '__main__':
     # Capturing video
     cameras = parser.getint("basic_config", "cameras")
     print("Total cameras " + str(cameras))
-    execute("4")
+    execute("0")
 
 if __name__ == '__ma in__':
     process_list = []

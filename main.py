@@ -45,8 +45,10 @@ def execute(num):
     fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
     print("video_writer created")
     video_file_output = event_path + 'output.mp4'
+    video_file_output_diff = event_path + 'output_diff.mp4'
     print(video_file_output)
     video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
+    video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
 
     region_of_interest = parser.get("camera_" + num, "region_of_interest")
     print("region_of_interest for camera {num} {region_of_interest} ".format(num=num,
@@ -56,18 +58,15 @@ def execute(num):
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
 
     # convert timestamp into DateTime object
-    original_time = datetime.now()
-    date_time = original_time
-
     # Infinite while loop to treat stack of image as video
     while True:
         # Reading frame(image) from video
         exists, original_frame = video.read()
+        date_time = datetime.now()
         # sleeptime.sleep(0.250)
         if exists:
             frame_no += 1
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
-            date_time = original_time + delta
         else:
             if motion == 1:
                 print("event ended {date_time}".format(date_time=date_time.strftime("%m-%d-%Y_%H:%M:%S:%f")))
@@ -75,9 +74,8 @@ def execute(num):
             break
 
         try:
-            frame = cv2.GaussianBlur(original_frame, (21, 21), 0)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
+            frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
+            frame = cv2.GaussianBlur(frame, (5, 5), 0)
             # Converting color image to gray_scale image
             if method == 'MOG2':
                 bgs = mog2.apply(frame)
@@ -111,9 +109,6 @@ def execute(num):
                                        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
-        if output_motion_video and motion == 1:
-            video_writer.write(frame)
-
         for contour in contours:
             if cv2.contourArea(contour) < area:
                 if motion == 1:
@@ -128,20 +123,21 @@ def execute(num):
 
             (x, y, w, h) = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 10), 1)
-            cv2.putText(frame, f'{method}', (20, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0, 2))
-            cv2.putText(frame, 'Motion Detected', (20, 40), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0, 2))
+            cv2.putText(frame, f'{method}', (20, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+            cv2.putText(frame, 'Motion Detected', (20, 40), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
             cv2.putText(frame, 'date_time ' + date_time.strftime("%m-%d-%Y_%H:%M:%S"), (20, 60),
-                        cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0, 2))
+                        cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
 
             cv2.drawContours(mask, contour, -1, 255, 3)
             break
 
-        if exists:
-            try:
-                cv2.imshow('Original Frame', frame)
-                cv2.imshow(method, bgs)
-            except Exception as e:
-                print(e)
+        cv2.imshow('Original Frame', original_frame)
+        cv2.imshow('Frame', frame)
+        cv2.imshow(method, bgs)
+
+        if output_motion_video:
+            video_writer.write(frame)
+            video_writer_diff.write(bgs)
 
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
@@ -154,6 +150,7 @@ def execute(num):
     if output_motion_video:
         print("releasing video_writer")
         video_writer.release()
+        video_writer_diff.release()
     # Destroying all the windows
     cv2.destroyAllWindows()
 
@@ -174,9 +171,9 @@ if __name__ == '__main__':
     # Capturing video
     cameras = parser.getint("basic_config", "cameras")
     print("Total cameras " + str(cameras))
-    execute("0")
+    execute("4")
 
-if __name__ == '__mai n__':
+if __name__ == '__ma in__':
     process_list = []
     print(datetime.now())
 

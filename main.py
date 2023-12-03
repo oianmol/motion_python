@@ -200,6 +200,8 @@ def execute(num):
                 detect_time = None
 
         cv2.imshow('Original Frame', original_frame)
+        cv2.imshow('Frame', frame)
+        cv2.imshow('bgs', bgs)
 
         if output_motion_video:
             video_writer.write(frame)
@@ -236,7 +238,7 @@ if __name__ == '__main__':
     # Capturing video
     cameras = parser.getint("basic_config", "cameras")
     print("Total cameras " + str(cameras))
-    execute("5")
+    execute("25")
 
 if __name__ == '__m ain__':
     process_list = []

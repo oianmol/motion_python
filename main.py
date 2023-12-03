@@ -198,8 +198,6 @@ def execute(num):
                 motion_not_detected(event_path)
                 end_time = None
                 detect_time = None
-        else:
-            print("")
 
         cv2.imshow('Original Frame', original_frame)
 

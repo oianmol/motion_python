@@ -19,6 +19,18 @@ Point = namedtuple("Point", ['x', 'y'])
 Size = namedtuple("Size", ['w', 'h'])
 
 
+def motion_not_detected(event_path):
+    end_time_formatted = "end_" + datetime.now().strftime("%m-%d-%Y_%H:%M:%S:%f")
+    print("event ended {date_time}".format(date_time=end_time_formatted))
+    open(event_path + end_time_formatted, 'w')
+
+
+def motion_detected(event_path):
+    start_time_formatted = "start_" + datetime.now().strftime("%m-%d-%Y_%H:%M:%S:%f")
+    print("event started {date_time}".format(date_time=start_time_formatted))
+    open(event_path + start_time_formatted, 'w')
+
+
 def initial_point_list(w: int, h: int) -> ty.List[Point]:
     # For now start with a rectangle covering 1/4 of the frame in the middle.
     top_left = Point(x=0, y=0)
@@ -38,13 +50,14 @@ def execute(num):
     cnt = cv2.bgsegm.createBackgroundSubtractorCNT(isParallel=True)
 
     frame1 = None
-    frame_no = 0
-    motion = 0
+    end_time = None
+    detect_time = None
 
     area = parser.getint("camera_" + num, "area")  # Define Min Contour area
     print("Contour area for camera {num} is {area}".format(num=num, area=area))
 
     blur = parser.defaults().get("blur")
+    post_motion_wait = parser.defaults().get("post_motion_wait")
     method = parser.get("basic_config", "method")
     print("Method used for camera {num} is {method}".format(num=num, method=method))
 
@@ -95,15 +108,11 @@ def execute(num):
     while True:
         # Reading frame(image) from video
         exists, original_frame = video.read()
-        date_time = datetime.now()
         sleeptime.sleep(0.050)
         if exists:
-            frame_no += 1
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
         else:
-            if motion == 1:
-                print("event ended {date_time}".format(date_time=date_time.strftime("%m-%d-%Y_%H:%M:%S:%f")))
-                open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
+            print("no frame discovered...")
             break
 
         try:
@@ -145,28 +154,52 @@ def execute(num):
             print(e)
             break
 
-        mask = np.zeros_like(frame)
-
         # Finding contour of moving object
         contours, _ = cv2.findContours(bgs.copy(),
                                        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
+        has_motion = []
         for contour in contours:
             if cv2.contourArea(contour) < area:
-                if motion == 1:
-                    print("event ended {date_time}".format(date_time=date_time.strftime("%m-%d-%Y_%H:%M:%S:%f")))
-                    open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
-                    motion = 0
-                continue
-            if motion == 0:
-                motion = 1
-                print("event started {date_time}".format(date_time=date_time.strftime("%m-%d-%Y_%H:%M:%S:%f")))
-                open(event_path + "start_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
+                has_motion.append(False)
+            else:
+                has_motion.append(True)
 
-            cv2.putText(original_frame, 'Motion Detected' +date_time.strftime("%m-%d-%Y_%H:%M:%S"), (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-            cv2.drawContours(original_frame, contours, -1, 255, 3)
-            break
+        contour_has_motion = any(has_motion)
+        if contour_has_motion:
+            cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"), (20, 300),
+                        cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+            cv2.drawContours(image=original_frame, contours=contours, contourIdx=-1, color=255, thickness=3)
+
+        if len(has_motion) > 0:
+            if contour_has_motion and detect_time is None:
+                detect_time = datetime.now()
+                end_time = None
+                motion_detected(event_path)
+            if contour_has_motion and detect_time is not None:
+                detect_time = datetime.now()
+                end_time = None
+            else:
+                # we do not have any motion
+                if end_time is None and detect_time is not None:
+                    end_time = datetime.now()
+        else:
+            # we do not have any motion
+            if end_time is None and detect_time is not None:
+                end_time = datetime.now()
+
+        if end_time is not None:
+            new_end_time = end_time + timedelta(seconds=int(post_motion_wait))
+            diff = new_end_time - datetime.now()
+            cv2.putText(original_frame, 'Time Elapsed Post Motion End {time}'.format(time=diff / 1000), (20, 250),
+                        cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+            if new_end_time < datetime.now():
+                motion_not_detected(event_path)
+                end_time = None
+                detect_time = None
+        else:
+            print("")
 
         cv2.imshow('Original Frame', original_frame)
 
@@ -176,7 +209,6 @@ def execute(num):
 
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
-            open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
             print("quit manually")
             break
 
@@ -206,7 +238,7 @@ if __name__ == '__main__':
     # Capturing video
     cameras = parser.getint("basic_config", "cameras")
     print("Total cameras " + str(cameras))
-    execute("44")
+    execute("5")
 
 if __name__ == '__m ain__':
     process_list = []
@@ -219,7 +251,6 @@ if __name__ == '__m ain__':
     args = vars(ap.parse_args())
 
     parser = configparser.ConfigParser()
-    parser.defaults()
     print("Reading config file " + args["config"])
     parser.read(args["config"])
 

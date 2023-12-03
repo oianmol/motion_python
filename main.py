@@ -37,9 +37,6 @@ def execute(num):
     knn = cv2.createBackgroundSubtractorKNN(detectShadows=False)
     cnt = cv2.bgsegm.createBackgroundSubtractorCNT(isParallel=True)
 
-    # Taking a matrix of size 5 as the kernel
-    kernel = np.ones((5, 5), np.uint8)
-
     frame1 = None
     frame_no = 0
     motion = 0
@@ -64,24 +61,31 @@ def execute(num):
     print("Events will be written to {event_path} ".format(event_path=event_path))
 
     output_motion_video = parser.getboolean("basic_config", "output_motion_video")
-    fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
-    print("video_writer created")
-    video_file_output = event_path + 'output.mp4'
-    video_file_output_diff = event_path + 'output_diff.mp4'
-    print(video_file_output)
-    video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
-    video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
+    if output_motion_video:
+        fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
+        print("video_writer created")
+        video_file_output = event_path + 'output.mp4'
+        video_file_output_diff = event_path + 'output_diff.mp4'
+        print(video_file_output)
+        video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
+        video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
 
+    # Region of interest start
     region_of_interest = parser.get("camera_" + num, "regions")
     print("region_of_interest for camera {num} {region_of_interest} ".format(num=num,
                                                                              region_of_interest=region_of_interest))
-
     regions = []
     if len(region_of_interest) > 0:
         x = region_of_interest.split(" ")
         it = iter(list(map(int, x)))
         for x in it:
             regions.append(Point(x, next(it)))
+
+    if len(regions) == 0:
+        initial_region = [initial_point_list(w=width, h=height)]
+        regions = initial_region
+
+    # Region of interest end
 
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
@@ -92,7 +96,7 @@ def execute(num):
         # Reading frame(image) from video
         exists, original_frame = video.read()
         date_time = datetime.now()
-        # sleeptime.sleep(0.250)
+        sleeptime.sleep(0.050)
         if exists:
             frame_no += 1
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
@@ -103,16 +107,10 @@ def execute(num):
             break
 
         try:
+            # test_frame = original_frame.copy()
+            # test_frame = cv2.normalize(original_frame, test_frame, -255, 512, cv2.NORM_MINMAX)
             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
             frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
-            #frame = cv2.dilate(frame, kernel, iterations=1)
-            width = frame.shape[1]
-            height = frame.shape[0]
-
-            initial_region = [initial_point_list(w=width, h=height)]
-
-            if len(regions) == 0:
-                regions = initial_region
 
             mask = np.zeros_like(frame, dtype=np.uint8)
             for shape in [regions]:
@@ -166,19 +164,11 @@ def execute(num):
                 print("event started {date_time}".format(date_time=date_time.strftime("%m-%d-%Y_%H:%M:%S:%f")))
                 open(event_path + "start_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
 
-            (x, y, w, h) = cv2.boundingRect(contour)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 10), 1)
-            cv2.putText(frame, f'{method}', (20, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-            cv2.putText(frame, 'Motion Detected', (20, 40), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-            cv2.putText(frame, 'date_time ' + date_time.strftime("%m-%d-%Y_%H:%M:%S"), (20, 60),
-                        cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-
-            cv2.drawContours(mask, contour, -1, 255, 3)
+            cv2.putText(original_frame, 'Motion Detected' +date_time.strftime("%m-%d-%Y_%H:%M:%S"), (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+            cv2.drawContours(original_frame, contours, -1, 255, 3)
             break
 
         cv2.imshow('Original Frame', original_frame)
-        cv2.imshow('Frame', frame)
-        cv2.imshow(method, bgs)
 
         if output_motion_video:
             video_writer.write(frame)
@@ -216,9 +206,9 @@ if __name__ == '__main__':
     # Capturing video
     cameras = parser.getint("basic_config", "cameras")
     print("Total cameras " + str(cameras))
-    execute("3")
+    execute("44")
 
-if __name__ == '__ma in__':
+if __name__ == '__m ain__':
     process_list = []
     print(datetime.now())
 

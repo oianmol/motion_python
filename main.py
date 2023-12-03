@@ -4,6 +4,8 @@ import argparse
 import os
 import threading
 import configparser
+from collections import namedtuple
+
 # importing datetime class from datetime library
 from datetime import datetime, timedelta
 import time as sleeptime
@@ -11,6 +13,22 @@ import time as sleeptime
 import cv2
 import numpy as np
 from pathlib import Path
+import typing as ty
+
+Point = namedtuple("Point", ['x', 'y'])
+Size = namedtuple("Size", ['w', 'h'])
+
+
+def initial_point_list(w: int, h: int) -> ty.List[Point]:
+    # For now start with a rectangle covering 1/4 of the frame in the middle.
+    top_left = Point(x=0, y=0)
+    box_size = Size(w=w, h=h)
+    return [
+        top_left,
+        Point(x=top_left.x + box_size.w, y=top_left.y),
+        Point(x=top_left.x + box_size.w, y=top_left.y + box_size.h),
+        Point(x=top_left.x, y=top_left.y + box_size.h),
+    ]
 
 
 def execute(num):
@@ -18,6 +36,9 @@ def execute(num):
     mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
     knn = cv2.createBackgroundSubtractorKNN(detectShadows=False)
     cnt = cv2.bgsegm.createBackgroundSubtractorCNT(isParallel=True)
+
+    # Taking a matrix of size 5 as the kernel
+    kernel = np.ones((5, 5), np.uint8)
 
     frame1 = None
     frame_no = 0
@@ -50,9 +71,16 @@ def execute(num):
     video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
     video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
 
-    region_of_interest = parser.get("camera_" + num, "region_of_interest")
+    region_of_interest = parser.get("camera_" + num, "regions")
     print("region_of_interest for camera {num} {region_of_interest} ".format(num=num,
                                                                              region_of_interest=region_of_interest))
+
+    regions = []
+    if len(region_of_interest) > 0:
+        x = region_of_interest.split(" ")
+        it = iter(list(map(int, x)))
+        for x in it:
+            regions.append(Point(x, next(it)))
 
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
@@ -76,6 +104,22 @@ def execute(num):
         try:
             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
             frame = cv2.GaussianBlur(frame, (7, 7), 0)
+            frame = cv2.dilate(frame, kernel, iterations=1)
+            width = frame.shape[1]
+            height = frame.shape[0]
+
+            initial_region = [initial_point_list(w=width, h=height)]
+
+            if len(regions) == 0:
+                regions = initial_region
+
+            mask = np.zeros_like(frame, dtype=np.uint8)
+            for shape in [regions]:
+                points = np.array([shape], np.int32)
+                mask = cv2.fillPoly(mask, points, color=(255, 255, 255), lineType=cv2.LINE_4)
+            # TODO: We can pre-calculate a masked version of the frame and just swap both out.
+            frame = np.bitwise_and(frame, mask).astype(np.uint8)
+
             # Converting color image to gray_scale image
             if method == 'MOG2':
                 bgs = mog2.apply(frame)
@@ -171,7 +215,7 @@ if __name__ == '__main__':
     # Capturing video
     cameras = parser.getint("basic_config", "cameras")
     print("Total cameras " + str(cameras))
-    execute("0")
+    execute("3")
 
 if __name__ == '__ma in__':
     process_list = []
@@ -184,6 +228,7 @@ if __name__ == '__ma in__':
     args = vars(ap.parse_args())
 
     parser = configparser.ConfigParser()
+    parser.defaults()
     print("Reading config file " + args["config"])
     parser.read(args["config"])
 

@@ -108,7 +108,7 @@ def execute(num):
     while True:
         # Reading frame(image) from video
         exists, original_frame = video.read()
-        sleeptime.sleep(0.050)
+        sleeptime.sleep(0.250)
         if exists:
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
         else:
@@ -150,6 +150,7 @@ def execute(num):
                 # current frame is greater than 30 it will show white color(255)
                 retval, bgs = cv2.threshold(framedelta.copy(), 30, 255, cv2.THRESH_BINARY)
                 bgs = cv2.dilate(bgs, None, iterations=2)
+                frame1 = None
         except Exception as e:
             print(e)
             break
@@ -199,9 +200,9 @@ def execute(num):
                 end_time = None
                 detect_time = None
 
-        cv2.imshow('Original Frame', original_frame)
-        cv2.imshow('Frame', frame)
-        cv2.imshow('bgs', bgs)
+        #cv2.imshow('Original Frame', original_frame)
+        #cv2.imshow('Frame', frame)
+        #cv2.imshow('bgs', bgs)
 
         if output_motion_video:
             video_writer.write(frame)
@@ -222,7 +223,7 @@ def execute(num):
     cv2.destroyAllWindows()
 
 
-if __name__ == '__main__':
+if __name__ == '__ma in__':
     print(datetime.now())
 
     # Constructing a parser
@@ -238,9 +239,9 @@ if __name__ == '__main__':
     # Capturing video
     cameras = parser.getint("basic_config", "cameras")
     print("Total cameras " + str(cameras))
-    execute("25")
+    execute("36")
 
-if __name__ == '__m ain__':
+if __name__ == '__main__':
     process_list = []
     print(datetime.now())
 

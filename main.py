@@ -47,6 +47,7 @@ def execute(num):
     area = parser.getint("camera_" + num, "area")  # Define Min Contour area
     print("Contour area for camera {num} is {area}".format(num=num, area=area))
 
+    blur = parser.defaults().get("blur")
     method = parser.get("basic_config", "method")
     print("Method used for camera {num} is {method}".format(num=num, method=method))
 
@@ -103,8 +104,8 @@ def execute(num):
 
         try:
             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
-            frame = cv2.GaussianBlur(frame, (7, 7), 0)
-            frame = cv2.dilate(frame, kernel, iterations=1)
+            frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
+            #frame = cv2.dilate(frame, kernel, iterations=1)
             width = frame.shape[1]
             height = frame.shape[0]
 

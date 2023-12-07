@@ -4,13 +4,43 @@ import argparse
 import os
 import threading
 import configparser
-import pandas
+from collections import namedtuple
+
 # importing datetime class from datetime library
 from datetime import datetime, timedelta
 import time as sleeptime
 # importing OpenCV, time and Pandas library
 import cv2
 import numpy as np
+from pathlib import Path
+import typing as ty
+
+Point = namedtuple("Point", ['x', 'y'])
+Size = namedtuple("Size", ['w', 'h'])
+
+
+def motion_not_detected(event_path):
+    end_time_formatted = "end_" + datetime.now().strftime("%m-%d-%Y_%H:%M:%S:%f")
+    print("event ended {date_time}".format(date_time=end_time_formatted))
+    open(event_path + end_time_formatted, 'w')
+
+
+def motion_detected(event_path):
+    start_time_formatted = "start_" + datetime.now().strftime("%m-%d-%Y_%H:%M:%S:%f")
+    print("event started {date_time}".format(date_time=start_time_formatted))
+    open(event_path + start_time_formatted, 'w')
+
+
+def initial_point_list(w: int, h: int) -> ty.List[Point]:
+    # For now start with a rectangle covering 1/4 of the frame in the middle.
+    top_left = Point(x=0, y=0)
+    box_size = Size(w=w, h=h)
+    return [
+        top_left,
+        Point(x=top_left.x + box_size.w, y=top_left.y),
+        Point(x=top_left.x + box_size.w, y=top_left.y + box_size.h),
+        Point(x=top_left.x, y=top_left.y + box_size.h),
+    ]
 
 
 def execute(num):
@@ -18,61 +48,86 @@ def execute(num):
     mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
     knn = cv2.createBackgroundSubtractorKNN(detectShadows=False)
     cnt = cv2.bgsegm.createBackgroundSubtractorCNT(isParallel=True)
-    # Time of movement
-    time = []
-    # Initializing DataFrame, one column is start
-    # time and other column is end time
-    df = pandas.DataFrame(columns=["Start", "End", "Duration"])
+
     frame1 = None
-    frame_no = 0
-    motion = 0
+    end_time = None
+    detect_time = None
 
-    # Constructing a parser
-    ap = argparse.ArgumentParser()
-    # Adding arguments
-    ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
-    args = vars(ap.parse_args())
+    area = parser.getint("camera_" + num, "area")  # Define Min Contour area
+    print("Contour area for camera {num} is {area}".format(num=num, area=area))
 
-    parser = configparser.ConfigParser()
-    print("Reading config file " + args["config"])
-    parser.read(args["config"])
-
-    # Capturing video
-    area = parser.getint("basic_config", "area")  # Define Min Contour area
+    blur = parser.defaults().get("blur")
+    post_motion_wait = parser.defaults().get("post_motion_wait")
     method = parser.get("basic_config", "method")
-    video_url = parser.get("basic_config", "uri")
-    event_path = parser.get("basic_config", "event_path")
+    print("Method used for camera {num} is {method}".format(num=num, method=method))
+
+    video_url = parser.get("camera_" + num, "uri")
+    print("video_url for camera {num} is {video_url}".format(num=num, video_url=video_url))
+
+    width = parser.getint("camera_" + num, "width")
+    height = parser.getint("camera_" + num, "height")
+    fps = parser.getint("camera_" + num, "fps")
+    print("Video Props {width} * {height} @ {fps} fps".format(width=width, height=height, fps=fps))
+
+    event_path = parser.get("camera_" + num, "event_path")
+    Path(event_path).mkdir(parents=True, exist_ok=True)
+    print("Events will be written to {event_path} ".format(event_path=event_path))
+
+    output_motion_video = parser.getboolean("basic_config", "output_motion_video")
+    if output_motion_video:
+        fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
+        print("video_writer created")
+        video_file_output = event_path + 'output.mp4'
+        video_file_output_diff = event_path + 'output_diff.mp4'
+        print(video_file_output)
+        video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
+        video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
+
+    # Region of interest start
+    region_of_interest = parser.get("camera_" + num, "regions")
+    print("region_of_interest for camera {num} {region_of_interest} ".format(num=num,
+                                                                             region_of_interest=region_of_interest))
+    regions = []
+    if len(region_of_interest) > 0:
+        x = region_of_interest.split(" ")
+        it = iter(list(map(int, x)))
+        for x in it:
+            regions.append(Point(x, next(it)))
+
+    if len(regions) == 0:
+        initial_region = [initial_point_list(w=width, h=height)]
+        regions = initial_region
+
+    # Region of interest end
 
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
 
     # convert timestamp into DateTime object
-    try:
-        original_time = datetime.fromtimestamp(os.path.getmtime(video_url))
-    except Exception as e:
-        original_time = datetime.now()
-        print("uri is not of file")
-
-    date_time = original_time
-
     # Infinite while loop to treat stack of image as video
-    while video.isOpened():
+    while True:
         # Reading frame(image) from video
-        exists, frame = video.read()
-        # sleeptime.sleep(0.250)
+        exists, original_frame = video.read()
+        sleeptime.sleep(0.250)
         if exists:
-            frame_no += 1
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
-            date_time = original_time + delta
         else:
-            if motion == 1:
-                time.append(date_time)
-                open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
+            print("no frame discovered...")
             break
 
         try:
-            frame = cv2.GaussianBlur(frame, (7, 7), 0)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # test_frame = original_frame.copy()
+            # test_frame = cv2.normalize(original_frame, test_frame, -255, 512, cv2.NORM_MINMAX)
+            frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
+            frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
+
+            mask = np.zeros_like(frame, dtype=np.uint8)
+            for shape in [regions]:
+                points = np.array([shape], np.int32)
+                mask = cv2.fillPoly(mask, points, color=(255, 255, 255), lineType=cv2.LINE_4)
+            # TODO: We can pre-calculate a masked version of the frame and just swap both out.
+            frame = np.bitwise_and(frame, mask).astype(np.uint8)
+
             # Converting color image to gray_scale image
             if method == 'MOG2':
                 bgs = mog2.apply(frame)
@@ -95,74 +150,116 @@ def execute(num):
                 # current frame is greater than 30 it will show white color(255)
                 retval, bgs = cv2.threshold(framedelta.copy(), 30, 255, cv2.THRESH_BINARY)
                 bgs = cv2.dilate(bgs, None, iterations=2)
+                frame1 = None
         except Exception as e:
             print(e)
             break
-
-        mask = np.zeros_like(frame)
 
         # Finding contour of moving object
         contours, _ = cv2.findContours(bgs.copy(),
                                        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
+        has_motion = []
         for contour in contours:
             if cv2.contourArea(contour) < area:
-                if motion == 1:
-                    time.append(date_time)
-                    open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
-                    motion = 0
-                continue
-            if motion == 0:
-                motion = 1
-                time.append(date_time)
-                open(event_path + "start_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
+                has_motion.append(False)
+            else:
+                has_motion.append(True)
 
-            (x, y, w, h) = cv2.boundingRect(contour)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 10), 1)
-            cv2.putText(frame, f'{method}', (20, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0, 2))
-            cv2.putText(frame, 'Motion Detected', (20, 40), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0, 2))
-            cv2.putText(frame, 'date_time ' + date_time.strftime("%m-%d-%Y_%H:%M:%S"), (20, 60),
-                        cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0, 2))
+        contour_has_motion = any(has_motion)
+        if contour_has_motion:
+            cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"), (20, 300),
+                        cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+            cv2.drawContours(image=original_frame, contours=contours, contourIdx=-1, color=255, thickness=3)
 
-            cv2.drawContours(mask, contour, -1, 255, 3)
-            break
+        if len(has_motion) > 0:
+            if contour_has_motion and detect_time is None:
+                detect_time = datetime.now()
+                end_time = None
+                motion_detected(event_path)
+            if contour_has_motion and detect_time is not None:
+                detect_time = datetime.now()
+                end_time = None
+            else:
+                # we do not have any motion
+                if end_time is None and detect_time is not None:
+                    end_time = datetime.now()
+        else:
+            # we do not have any motion
+            if end_time is None and detect_time is not None:
+                end_time = datetime.now()
 
-        cv2.imshow('Original Frame', frame)
-        cv2.imshow(method, bgs)
+        if end_time is not None:
+            new_end_time = end_time + timedelta(seconds=int(post_motion_wait))
+            diff = new_end_time - datetime.now()
+            cv2.putText(original_frame, 'Time Elapsed Post Motion End {time}'.format(time=diff / 1000), (20, 250),
+                        cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+            if new_end_time < datetime.now():
+                motion_not_detected(event_path)
+                end_time = None
+                detect_time = None
+
+        #cv2.imshow('Original Frame', original_frame)
+        #cv2.imshow('Frame', frame)
+        #cv2.imshow('bgs', bgs)
+
+        if output_motion_video:
+            video_writer.write(frame)
+            video_writer_diff.write(bgs)
 
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
-            # if something is moving then it append the end time of movement
-            time.append(date_time)
-            open(event_path + "end_" + date_time.strftime("%m-%d-%Y_%H:%M:%S:%f"), 'w')
             print("quit manually")
             break
 
     print("video released")
     video.release()
-    print("spitting motion event to data frame")
-
-    # Appending time of motion in DataFrame
-    for i in range(0, len(time), 2):
-        diff = time[i + 1] - time[i]
-        df = df._append({"Start": time[i], "End": time[i + 1], "Difference": diff}, ignore_index=True)
-
-    # Creating a CSV file in which time of movements will be saved
-    df.to_csv(str(num) + method + "_motions.csv")
+    if output_motion_video:
+        print("releasing video_writer")
+        video_writer.release()
+        video_writer_diff.release()
     # Destroying all the windows
     cv2.destroyAllWindows()
 
 
-if __name__ == '__main__':
-    execute(0)
-
 if __name__ == '__ma in__':
+    print(datetime.now())
+
+    # Constructing a parser
+    ap = argparse.ArgumentParser()
+    # Adding arguments
+    ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
+    args = vars(ap.parse_args())
+
+    parser = configparser.ConfigParser()
+    print("Reading config file " + args["config"])
+    parser.read(args["config"])
+
+    # Capturing video
+    cameras = parser.getint("basic_config", "cameras")
+    print("Total cameras " + str(cameras))
+    execute("36")
+
+if __name__ == '__main__':
     process_list = []
     print(datetime.now())
 
-    for num in range(0, 3):
-        process = threading.Thread(target=execute, args=([num]))
+    # Constructing a parser
+    ap = argparse.ArgumentParser()
+    # Adding arguments
+    ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
+    args = vars(ap.parse_args())
+
+    parser = configparser.ConfigParser()
+    print("Reading config file " + args["config"])
+    parser.read(args["config"])
+
+    # Capturing video
+    cameras = parser.getint("basic_config", "cameras")
+    print("Total cameras " + str(cameras))
+    for num in range(0, cameras):
+        process = threading.Thread(target=execute, args=([str(num)]))
         process_list.append(process)
 
     for process in process_list:

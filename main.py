@@ -45,8 +45,9 @@ def initial_point_list(w: int, h: int) -> ty.List[Point]:
 
 def execute(num):
     mog = cv2.bgsegm.createBackgroundSubtractorMOG()
-    mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
-    knn = cv2.createBackgroundSubtractorKNN(detectShadows=False)
+    mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+
+    knn = cv2.createBackgroundSubtractorKNN(detectShadows=True)
     cnt = cv2.bgsegm.createBackgroundSubtractorCNT(isParallel=True)
 
     frame1 = None
@@ -57,8 +58,12 @@ def execute(num):
     print("Contour area for camera {num} is {area}".format(num=num, area=area))
 
     blur = parser.defaults().get("blur")
+    detect_shadows = parser.defaults().get("detect_shadows")
+    if bool(detect_shadows):
+        mog2.setShadowValue(0)
+
     post_motion_wait = parser.defaults().get("post_motion_wait")
-    method = parser.get("basic_config", "method")
+    method = parser.defaults().get("method")
     print("Method used for camera {num} is {method}".format(num=num, method=method))
 
     video_url = parser.get("camera_" + num, "uri")
@@ -73,7 +78,7 @@ def execute(num):
     Path(event_path).mkdir(parents=True, exist_ok=True)
     print("Events will be written to {event_path} ".format(event_path=event_path))
 
-    output_motion_video = parser.getboolean("basic_config", "output_motion_video")
+    output_motion_video = parser.defaults().get("output_motion_video")
     if output_motion_video:
         fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
         print("video_writer created")
@@ -108,13 +113,12 @@ def execute(num):
     while True:
         # Reading frame(image) from video
         exists, original_frame = video.read()
-        sleeptime.sleep(0.250)
+        sleeptime.sleep(0.100)
         if exists:
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
         else:
             print("no frame discovered...")
             break
-
         try:
             # test_frame = original_frame.copy()
             # test_frame = cv2.normalize(original_frame, test_frame, -255, 512, cv2.NORM_MINMAX)
@@ -161,17 +165,19 @@ def execute(num):
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
         has_motion = []
+        contours_filtered = []
         for contour in contours:
             if cv2.contourArea(contour) < area:
                 has_motion.append(False)
             else:
+                contours_filtered.append(contour)
                 has_motion.append(True)
 
         contour_has_motion = any(has_motion)
         if contour_has_motion:
             cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"), (20, 300),
                         cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-            cv2.drawContours(image=original_frame, contours=contours, contourIdx=-1, color=255, thickness=3)
+            cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1, color=255, thickness=3)
 
         if len(has_motion) > 0:
             if contour_has_motion and detect_time is None:
@@ -200,9 +206,9 @@ def execute(num):
                 end_time = None
                 detect_time = None
 
-        #cv2.imshow('Original Frame', original_frame)
-        #cv2.imshow('Frame', frame)
-        #cv2.imshow('bgs', bgs)
+        cv2.imshow('bgs', bgs)
+        cv2.imshow('Original Frame', original_frame)
+        cv2.imshow('Frame', frame)
 
         if output_motion_video:
             video_writer.write(frame)
@@ -223,7 +229,7 @@ def execute(num):
     cv2.destroyAllWindows()
 
 
-if __name__ == '__ma in__':
+if __name__ == '__main__':
     print(datetime.now())
 
     # Constructing a parser
@@ -237,11 +243,11 @@ if __name__ == '__ma in__':
     parser.read(args["config"])
 
     # Capturing video
-    cameras = parser.getint("basic_config", "cameras")
+    cameras = parser.defaults().get("cameras")
     print("Total cameras " + str(cameras))
-    execute("36")
+    execute("0")
 
-if __name__ == '__main__':
+if __name__ == '__mai n__':
     process_list = []
     print(datetime.now())
 
@@ -256,7 +262,7 @@ if __name__ == '__main__':
     parser.read(args["config"])
 
     # Capturing video
-    cameras = parser.getint("basic_config", "cameras")
+    cameras = int(parser.defaults().get("cameras"))
     print("Total cameras " + str(cameras))
     for num in range(0, cameras):
         process = threading.Thread(target=execute, args=([str(num)]))

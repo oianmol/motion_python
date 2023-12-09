@@ -10,6 +10,7 @@ from collections import namedtuple
 # importing datetime class from datetime library
 from datetime import datetime, timedelta
 from pathlib import Path
+import typing as ty
 
 # importing OpenCV, time and Pandas library
 import cv2
@@ -30,6 +31,18 @@ def motion_detected(event_path, camera_id):
     start_time_formatted = camera_id + "_MotionStart_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".txt"
     logging.debug("event started {date_time}".format(date_time=start_time_formatted))
     open(event_path + start_time_formatted, 'w')
+
+
+def initial_point_list(w: int, h: int) -> ty.List[Point]:
+    # For now start with a rectangle covering 1/4 of the frame in the middle.
+    top_left = Point(x=0, y=0)
+    box_size = Size(w=w, h=h)
+    return [
+        top_left,
+        Point(x=top_left.x + box_size.w, y=top_left.y),
+        Point(x=top_left.x + box_size.w, y=top_left.y + box_size.h),
+        Point(x=top_left.x, y=top_left.y + box_size.h),
+    ]
 
 
 def execute(num, camera_id):
@@ -87,6 +100,10 @@ def execute(num, camera_id):
         it = iter(list(map(int, x)))
         for x in it:
             regions.append(Point(x, next(it)))
+
+    if len(regions) == 0:
+        initial_region = [initial_point_list(w=width, h=height)]
+        regions = initial_region
     # Region of interest end
 
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable

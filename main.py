@@ -258,7 +258,7 @@ if __name__ == '__main__':
         logging.debug("Running for {total} cameras ".format(total=str(cameras)))
         for num in range(0, cameras):
             camera_id = parser.getint("camera_" + str(num), "camera_id")
-            process = threading.Thread(target=execute, args=([str(num, camera_id)]))
+            process = threading.Thread(target=execute, args=([str(num),str(camera_id)]))
             process_list.append(process)
 
         for process in process_list:

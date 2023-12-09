@@ -1,20 +1,19 @@
 # Python program to implement  
 # Webcam Motion Detector
 import argparse
+import configparser
+import logging
 import os
 import threading
-import configparser
+import time as sleeptime
 from collections import namedtuple
-import logging
-
 # importing datetime class from datetime library
 from datetime import datetime, timedelta
-import time as sleeptime
+from pathlib import Path
+
 # importing OpenCV, time and Pandas library
 import cv2
 import numpy as np
-from pathlib import Path
-import typing as ty
 
 Point = namedtuple("Point", ['x', 'y'])
 Size = namedtuple("Size", ['w', 'h'])
@@ -33,19 +32,7 @@ def motion_detected(event_path, camera_id):
     open(event_path + start_time_formatted, 'w')
 
 
-def initial_point_list(w: int, h: int) -> ty.List[Point]:
-    # For now start with a rectangle covering 1/4 of the frame in the middle.
-    top_left = Point(x=0, y=0)
-    box_size = Size(w=w, h=h)
-    return [
-        top_left,
-        Point(x=top_left.x + box_size.w, y=top_left.y),
-        Point(x=top_left.x + box_size.w, y=top_left.y + box_size.h),
-        Point(x=top_left.x, y=top_left.y + box_size.h),
-    ]
-
-
-def execute(camera_id):
+def execute(num, camera_id):
     mog = cv2.bgsegm.createBackgroundSubtractorMOG()
     mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
 
@@ -56,7 +43,7 @@ def execute(camera_id):
     end_time = None
     detect_time = None
 
-    area = parser.getint("camera_" + camera_id, "area")  # Define Min Contour area
+    area = parser.getint("camera_" + num, "area")  # Define Min Contour area
     logging.debug("Contour area for camera {num} is {area}".format(num=camera_id, area=area))
 
     blur = parser.defaults().get("blur")
@@ -68,15 +55,15 @@ def execute(camera_id):
     method = parser.defaults().get("method")
     logging.debug("Method used for camera {num} is {method}".format(num=camera_id, method=method))
 
-    video_url = parser.get("camera_" + camera_id, "uri")
+    video_url = parser.get("camera_" + num, "uri")
     logging.debug("video_url for camera {num} is {video_url}".format(num=camera_id, video_url=video_url))
 
-    width = parser.getint("camera_" + camera_id, "width")
-    height = parser.getint("camera_" + camera_id, "height")
-    fps = parser.getint("camera_" + camera_id, "fps")
+    width = parser.getint("camera_" + num, "width")
+    height = parser.getint("camera_" + num, "height")
+    fps = parser.getint("camera_" + num, "fps")
     logging.debug("Video Props {width} * {height} @ {fps} fps".format(width=width, height=height, fps=fps))
 
-    event_path = parser.get("camera_" + camera_id, "event_path")
+    event_path = parser.get("camera_" + num, "event_path")
     Path(event_path).mkdir(parents=True, exist_ok=True)
     logging.debug("Events will be written to {event_path} ".format(event_path=event_path))
 
@@ -91,7 +78,7 @@ def execute(camera_id):
         video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
 
     # Region of interest start
-    region_of_interest = parser.get("camera_" + camera_id, "regions")
+    region_of_interest = parser.get("camera_" + num, "regions")
     logging.debug("region_of_interest for camera {num} {region_of_interest} ".format(num=camera_id,
                                                                                      region_of_interest=region_of_interest))
     regions = []
@@ -100,11 +87,6 @@ def execute(camera_id):
         it = iter(list(map(int, x)))
         for x in it:
             regions.append(Point(x, next(it)))
-
-    if len(regions) == 0:
-        initial_region = [initial_point_list(w=width, h=height)]
-        regions = initial_region
-
     # Region of interest end
 
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable
@@ -276,7 +258,7 @@ if __name__ == '__main__':
         logging.debug("Running for {total} cameras ".format(total=str(cameras)))
         for num in range(0, cameras):
             camera_id = parser.getint("camera_" + str(num), "camera_id")
-            process = threading.Thread(target=execute, args=([str(camera_id)]))
+            process = threading.Thread(target=execute, args=([str(num, camera_id)]))
             process_list.append(process)
 
         for process in process_list:

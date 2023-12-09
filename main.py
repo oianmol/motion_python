@@ -5,6 +5,7 @@ import os
 import threading
 import configparser
 from collections import namedtuple
+import logging
 
 # importing datetime class from datetime library
 from datetime import datetime, timedelta
@@ -19,15 +20,16 @@ Point = namedtuple("Point", ['x', 'y'])
 Size = namedtuple("Size", ['w', 'h'])
 
 
-def motion_not_detected(event_path):
-    end_time_formatted = "end_" + datetime.now().strftime("%m-%d-%Y_%H:%M:%S:%f")
-    print("event ended {date_time}".format(date_time=end_time_formatted))
+def motion_not_detected(event_path, camera_id):
+    end_time_formatted = camera_id + "_MotionEnd_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".txt"
+    logging.debug("event ended {date_time}".format(date_time=end_time_formatted))
     open(event_path + end_time_formatted, 'w')
 
 
-def motion_detected(event_path):
-    start_time_formatted = "start_" + datetime.now().strftime("%m-%d-%Y_%H:%M:%S:%f")
-    print("event started {date_time}".format(date_time=start_time_formatted))
+def motion_detected(event_path, camera_id):
+    "%t_MotionStart_%Y_%m_%d_%H_%M_%S.txt"
+    start_time_formatted = camera_id + "_MotionStart_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".txt"
+    logging.debug("event started {date_time}".format(date_time=start_time_formatted))
     open(event_path + start_time_formatted, 'w')
 
 
@@ -43,7 +45,7 @@ def initial_point_list(w: int, h: int) -> ty.List[Point]:
     ]
 
 
-def execute(num):
+def execute(camera_id):
     mog = cv2.bgsegm.createBackgroundSubtractorMOG()
     mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
 
@@ -54,8 +56,8 @@ def execute(num):
     end_time = None
     detect_time = None
 
-    area = parser.getint("camera_" + num, "area")  # Define Min Contour area
-    print("Contour area for camera {num} is {area}".format(num=num, area=area))
+    area = parser.getint("camera_" + camera_id, "area")  # Define Min Contour area
+    logging.debug("Contour area for camera {num} is {area}".format(num=camera_id, area=area))
 
     blur = parser.defaults().get("blur")
     detect_shadows = parser.defaults().get("detect_shadows")
@@ -64,34 +66,34 @@ def execute(num):
 
     post_motion_wait = parser.defaults().get("post_motion_wait")
     method = parser.defaults().get("method")
-    print("Method used for camera {num} is {method}".format(num=num, method=method))
+    logging.debug("Method used for camera {num} is {method}".format(num=camera_id, method=method))
 
-    video_url = parser.get("camera_" + num, "uri")
-    print("video_url for camera {num} is {video_url}".format(num=num, video_url=video_url))
+    video_url = parser.get("camera_" + camera_id, "uri")
+    logging.debug("video_url for camera {num} is {video_url}".format(num=camera_id, video_url=video_url))
 
-    width = parser.getint("camera_" + num, "width")
-    height = parser.getint("camera_" + num, "height")
-    fps = parser.getint("camera_" + num, "fps")
-    print("Video Props {width} * {height} @ {fps} fps".format(width=width, height=height, fps=fps))
+    width = parser.getint("camera_" + camera_id, "width")
+    height = parser.getint("camera_" + camera_id, "height")
+    fps = parser.getint("camera_" + camera_id, "fps")
+    logging.debug("Video Props {width} * {height} @ {fps} fps".format(width=width, height=height, fps=fps))
 
-    event_path = parser.get("camera_" + num, "event_path")
+    event_path = parser.get("camera_" + camera_id, "event_path")
     Path(event_path).mkdir(parents=True, exist_ok=True)
-    print("Events will be written to {event_path} ".format(event_path=event_path))
+    logging.debug("Events will be written to {event_path} ".format(event_path=event_path))
 
     output_motion_video = parser.defaults().get("output_motion_video")
     if output_motion_video:
         fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
-        print("video_writer created")
+        logging.debug("video_writer created")
         video_file_output = event_path + 'output.mp4'
         video_file_output_diff = event_path + 'output_diff.mp4'
-        print(video_file_output)
+        logging.debug(video_file_output)
         video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
         video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
 
     # Region of interest start
-    region_of_interest = parser.get("camera_" + num, "regions")
-    print("region_of_interest for camera {num} {region_of_interest} ".format(num=num,
-                                                                             region_of_interest=region_of_interest))
+    region_of_interest = parser.get("camera_" + camera_id, "regions")
+    logging.debug("region_of_interest for camera {num} {region_of_interest} ".format(num=camera_id,
+                                                                                     region_of_interest=region_of_interest))
     regions = []
     if len(region_of_interest) > 0:
         x = region_of_interest.split(" ")
@@ -113,12 +115,12 @@ def execute(num):
     while True:
         # Reading frame(image) from video
         exists, original_frame = video.read()
-        sleeptime.sleep(0.100)
+        sleeptime.sleep(0.250)
         if exists:
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
         else:
-            print("no frame discovered...")
-            break
+            logging.error("no frame discovered...")
+
         try:
             # test_frame = original_frame.copy()
             # test_frame = cv2.normalize(original_frame, test_frame, -255, 512, cv2.NORM_MINMAX)
@@ -156,7 +158,7 @@ def execute(num):
                 bgs = cv2.dilate(bgs, None, iterations=2)
                 frame1 = None
         except Exception as e:
-            print(e)
+            logging.error(e)
             break
 
         # Finding contour of moving object
@@ -183,7 +185,7 @@ def execute(num):
             if contour_has_motion and detect_time is None:
                 detect_time = datetime.now()
                 end_time = None
-                motion_detected(event_path)
+                motion_detected(event_path, camera_id)
             if contour_has_motion and detect_time is not None:
                 detect_time = datetime.now()
                 end_time = None
@@ -202,13 +204,13 @@ def execute(num):
             cv2.putText(original_frame, 'Time Elapsed Post Motion End {time}'.format(time=diff / 1000), (20, 250),
                         cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
             if new_end_time < datetime.now():
-                motion_not_detected(event_path)
+                motion_not_detected(event_path, camera_id)
                 end_time = None
                 detect_time = None
 
-        cv2.imshow('bgs', bgs)
-        cv2.imshow('Original Frame', original_frame)
-        cv2.imshow('Frame', frame)
+        # cv2.imshow('bgs', bgs)
+        # cv2.imshow('Original Frame', original_frame)
+        # cv2.imshow('Frame', frame)
 
         if output_motion_video:
             video_writer.write(frame)
@@ -216,21 +218,21 @@ def execute(num):
 
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
-            print("quit manually")
+            logging.debug("quit manually")
             break
 
-    print("video released")
+    logging.debug("video released")
     video.release()
     if output_motion_video:
-        print("releasing video_writer")
+        logging.debug("releasing video_writer")
         video_writer.release()
         video_writer_diff.release()
     # Destroying all the windows
     cv2.destroyAllWindows()
 
 
-if __name__ == '__main__':
-    print(datetime.now())
+if __name__ == '__ma in__':
+    logging.debug(datetime.now())
 
     # Constructing a parser
     ap = argparse.ArgumentParser()
@@ -239,39 +241,50 @@ if __name__ == '__main__':
     args = vars(ap.parse_args())
 
     parser = configparser.ConfigParser()
-    print("Reading config file " + args["config"])
+    logging.debug("Reading config file " + args["config"])
     parser.read(args["config"])
 
     # Capturing video
     cameras = parser.defaults().get("cameras")
-    print("Total cameras " + str(cameras))
+    logging.debug("Total cameras " + str(cameras))
     execute("0")
 
-if __name__ == '__mai n__':
-    process_list = []
-    print(datetime.now())
+if __name__ == '__main__':
+    logging.basicConfig(filename="motion_smc_output.log",
+                        level=logging.DEBUG,
+                        format="%(asctime)s %(message)s")
 
+    process_list = []
+
+    logging.debug("Program started at {time}!".format(time=datetime.now()))
     # Constructing a parser
     ap = argparse.ArgumentParser()
     # Adding arguments
     ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
     args = vars(ap.parse_args())
+    config_file = str(args["config"])
 
-    parser = configparser.ConfigParser()
-    print("Reading config file " + args["config"])
-    parser.read(args["config"])
+    if not os.path.isfile(config_file):
+        config_file = str(Path.home()) + "/motion_smc.ini"
 
-    # Capturing video
-    cameras = int(parser.defaults().get("cameras"))
-    print("Total cameras " + str(cameras))
-    for num in range(0, cameras):
-        process = threading.Thread(target=execute, args=([str(num)]))
-        process_list.append(process)
+    if os.path.isfile(config_file):
+        logging.debug("Reading config file " + config_file)
+        parser = configparser.ConfigParser()
+        parser.read(config_file)
+        # Capturing video
+        cameras = int(parser.defaults().get("cameras"))
+        logging.debug("Running for {total} cameras ".format(total=str(cameras)))
+        for num in range(0, cameras):
+            camera_id = parser.getint("camera_" + str(num), "camera_id")
+            process = threading.Thread(target=execute, args=([str(camera_id)]))
+            process_list.append(process)
 
-    for process in process_list:
-        process.start()
+        for process in process_list:
+            process.start()
 
-    for process in process_list:
-        process.join()
+        for process in process_list:
+            process.join()
 
-    print(datetime.now())
+        logging.debug(datetime.now())
+    else:
+        logging.debug("Config file not provided as arg run with python main.py -c ~/path/to/config.ini")

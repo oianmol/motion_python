@@ -232,13 +232,13 @@ if __name__ == '__ma in__':
     execute("0")
 
 if __name__ == '__main__':
-    logging.basicConfig(filename="motion_smc_output.log",
+    logging.basicConfig(filename= str(Path.home()) + "/motion_smc_output.log",
                         level=logging.DEBUG,
                         format="%(asctime)s %(message)s")
 
     process_list = []
 
-    logging.debug("Program started at {time}!".format(time=datetime.now()))
+    logging.debug("Program started at {time} ".format(time=datetime.now()))
     # Constructing a parser
     ap = argparse.ArgumentParser()
     # Adding arguments

@@ -47,7 +47,7 @@ def execute(num, camera_id):
     logging.debug("Contour area for camera {num} is {area}".format(num=camera_id, area=area))
 
     blur = parser.defaults().get("blur")
-    detect_shadows = parser.defaults().get("detect_shadows")
+    detect_shadows = parser.getboolean("DEFAULT", "detect_shadows")
     if bool(detect_shadows):
         mog2.setShadowValue(0)
 
@@ -67,7 +67,7 @@ def execute(num, camera_id):
     Path(event_path).mkdir(parents=True, exist_ok=True)
     logging.debug("Events will be written to {event_path} ".format(event_path=event_path))
 
-    output_motion_video = parser.defaults().get("output_motion_video")
+    output_motion_video = parser.getboolean("DEFAULT", "output_motion_video")
     if output_motion_video:
         fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
         logging.debug("video_writer created")
@@ -231,7 +231,7 @@ if __name__ == '__ma in__':
     execute("0")
 
 if __name__ == '__main__':
-    logging.basicConfig(filename= str(Path.home()) + "/motion_smc_output.log",
+    logging.basicConfig(filename=str(Path.home()) + "/motion_smc_output.log",
                         level=logging.DEBUG,
                         format="%(asctime)s %(message)s")
 
@@ -257,7 +257,7 @@ if __name__ == '__main__':
         logging.debug("Running for {total} cameras ".format(total=str(cameras)))
         for num in range(0, cameras):
             camera_id = parser.getint("camera_" + str(num), "camera_id")
-            process = threading.Thread(target=execute, args=([str(num),str(camera_id)]))
+            process = threading.Thread(target=execute, args=([str(num), str(camera_id)]))
             process_list.append(process)
 
         for process in process_list:

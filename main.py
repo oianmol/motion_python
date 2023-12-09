@@ -5,6 +5,7 @@ import configparser
 import logging
 import os
 import threading
+import multiprocessing
 import time as sleeptime
 from collections import namedtuple
 # importing datetime class from datetime library
@@ -45,12 +46,9 @@ def initial_point_list(w: int, h: int) -> ty.List[Point]:
     ]
 
 
-def processing(bgs, blur, mog2, original_frame, regions, area, detect_time, end_time, event_path, output_motion_video,
-               post_motion_wait, video_writer, video_writer_diff):
+def processing(bgs, blur, mog2, original_frame, regions, area, detect_time, end_time, event_path, output_motion_video, post_motion_wait, video_writer, video_writer_diff, camera_id):
     bgs, frame = process_frame(bgs, blur, mog2, original_frame, regions)
-    process_bgs(area, bgs, camera_id, detect_time, end_time, event_path, frame, original_frame,
-                output_motion_video,
-                post_motion_wait, video_writer, video_writer_diff)
+    process_bgs(area, bgs, camera_id, detect_time, end_time, event_path, frame, original_frame,output_motion_video,post_motion_wait, video_writer, video_writer_diff)
 
 
 def execute(num, camera_id):
@@ -81,7 +79,8 @@ def execute(num, camera_id):
     event_path = str(Path.home()) + os.sep + "events" + os.sep
     Path(event_path).mkdir(parents=True, exist_ok=True)
     logging.debug("Events will be written to {event_path} ".format(event_path=event_path))
-
+    video_writer = None
+    video_writer_diff = None
     output_motion_video = parser.getboolean("DEFAULT", "output_motion_video")
     if output_motion_video:
         fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
@@ -108,7 +107,7 @@ def execute(num, camera_id):
         regions = initial_region
     # Region of interest end
 
-    os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'  # Use tcp instead of udp if stream is unstable
+    os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'  # Use tcp instead of udp if stream is unstable
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
 
     # convert timestamp into DateTime object
@@ -117,19 +116,15 @@ def execute(num, camera_id):
         # Reading frame(image) from video
         exists, original_frame = video.read()
         bgs = None
-        sleeptime.sleep(0.250)
         if exists:
             delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
+            try:
+                processing_thread = threading.Thread(target=processing, args=([bgs, blur, mog2, original_frame, regions, area, detect_time, end_time, event_path, output_motion_video, post_motion_wait, video_writer, video_writer_diff, camera_id]))
+                processing_thread.start()
+            except Exception as e:
+                logging.error(e)
         else:
             logging.error("no frame discovered...")
-
-        try:
-            processing_thread = threading.Thread(target=processing, args=([bgs, blur, mog2, original_frame, regions, area, detect_time, end_time, event_path, output_motion_video,
-               post_motion_wait, video_writer, video_writer_diff]))
-            processing_thread.start()
-            processing_thread.join()
-        except Exception as e:
-            logging.error(e)
 
     video.release()
     if output_motion_video:

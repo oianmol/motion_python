@@ -141,7 +141,6 @@ def execute(num, camera_id):
                 frame1 = None
         except Exception as e:
             logging.error(e)
-            break
 
         # Finding contour of moving object
         contours, _ = cv2.findContours(bgs.copy(),

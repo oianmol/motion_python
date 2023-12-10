@@ -110,7 +110,6 @@ def execute(num, camera_id):
             num=camera_id, video_url=video_url, total_cameras_created=total_cameras_created))
     # convert timestamp into DateTime object
     # Infinite while loop to treat stack of image as video
-    processing_threads = []
     while True:
         # Reading frame(image) from video
         exists, original_frame = video.read()
@@ -119,13 +118,8 @@ def execute(num, camera_id):
                                                    mog2, original_frame,
                                                    output_motion_video, post_motion_wait, regions, video_writer,
                                                    video_writer_diff])
-        processing_threads.append(processing_thread)
         processing_thread.start()
 
-        for index, thread in enumerate(processing_threads):
-            logging.info("Main    : before joining thread %d. cameraid %s", index,camera_id)
-            thread.join()
-            logging.info("Main    : thread %d done. cameraid %s", index,camera_id)
 
     logging.error(f"thread finished for camera {camera_id}")
     video.release()

@@ -47,6 +47,7 @@ def initial_point_list(w: int, h: int) -> ty.List[Point]:
 
 
 total_cameras_created = 0
+all_instances_created = False
 
 
 def execute(num, camera_id):
@@ -105,79 +106,26 @@ def execute(num, camera_id):
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
     total_cameras_created += 1
     logging.debug(
-        "video instance created for cameraid {num} with {video_url} total created {total_cameras_created}".format(num=camera_id, video_url=video_url,total_cameras_created=total_cameras_created))
+        "video instance created for cameraid {num} with {video_url} total created {total_cameras_created}".format(
+            num=camera_id, video_url=video_url, total_cameras_created=total_cameras_created))
     # convert timestamp into DateTime object
     # Infinite while loop to treat stack of image as video
+    processing_threads = []
     while True:
         # Reading frame(image) from video
         exists, original_frame = video.read()
-        if exists:
-            try:
-                frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
-                frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
-                mask = np.zeros_like(frame, dtype=np.uint8)
-                for shape in [regions]:
-                    points = np.array([shape], np.int32)
-                    mask = cv2.fillPoly(mask, points, color=(255, 255, 255), lineType=cv2.LINE_4)
-                frame = np.bitwise_and(frame, mask).astype(np.uint8)
-                bgs = mog2.apply(frame)
-                # Finding contour of moving object
-                if bgs is not None:
-                    contours, _ = cv2.findContours(bgs.copy(),
-                                                   cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+        processing_thread = threading.Thread(target=processing_frame,
+                                             args=[area, blur, camera_id, detect_time, end_time, event_path, exists,
+                                                   mog2, original_frame,
+                                                   output_motion_video, post_motion_wait, regions, video_writer,
+                                                   video_writer_diff])
+        processing_threads.append(processing_thread)
+        processing_thread.start()
 
-                    has_motion = []
-                    contours_filtered = []
-                    for contour in contours:
-                        if cv2.contourArea(contour) < area:
-                            has_motion.append(False)
-                        else:
-                            contours_filtered.append(contour)
-                            has_motion.append(True)
-
-                    contour_has_motion = any(has_motion)
-                    if contour_has_motion:
-                        cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),
-                                    (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-                        cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1, color=255,
-                                         thickness=3)
-
-                    if len(has_motion) > 0:
-                        if contour_has_motion and detect_time is None:
-                            detect_time = datetime.now()
-                            end_time = None
-                            motion_detected(event_path, camera_id)
-                        if contour_has_motion and detect_time is not None:
-                            detect_time = datetime.now()
-                            end_time = None
-                        else:
-                            # we do not have any motion
-                            if end_time is None and detect_time is not None:
-                                end_time = datetime.now()
-                    else:
-                        # we do not have any motion
-                        if end_time is None and detect_time is not None:
-                            end_time = datetime.now()
-
-                    if end_time is not None:
-                        new_end_time = end_time + timedelta(seconds=int(post_motion_wait))
-                        diff = new_end_time - datetime.now()
-                        cv2.putText(original_frame, 'Time Elapsed Post Motion End {time}'.format(time=diff / 1000),
-                                    (20, 250),
-                                    cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-                        if new_end_time < datetime.now():
-                            motion_not_detected(event_path, camera_id)
-                            end_time = None
-                            detect_time = None
-                    if output_motion_video:
-                        video_writer.write(frame)
-                        video_writer_diff.write(bgs)
-            except Exception as e:
-                logging.error(e)
-        else:
-            sleeptime.sleep(2)
-            logging.error(f"no frame discovered for {camera_id} will retry after 2 seconds")
+        for index, thread in enumerate(processing_threads):
+            logging.info("Main    : before joining thread %d. cameraid %d", index,camera_id)
+            thread.join()
+            logging.info("Main    : thread %d done. cameraid %d", index,camera_id)
 
     logging.error(f"thread finished for camera {camera_id}")
     video.release()
@@ -187,6 +135,77 @@ def execute(num, camera_id):
         video_writer_diff.release()
     # Destroying all the windows
     cv2.destroyAllWindows()
+
+
+def processing_frame(area, blur, camera_id, detect_time, end_time, event_path, exists, mog2, original_frame,
+                     output_motion_video, post_motion_wait, regions, video_writer, video_writer_diff):
+    if exists:
+        try:
+            frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
+            frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
+            mask = np.zeros_like(frame, dtype=np.uint8)
+            for shape in [regions]:
+                points = np.array([shape], np.int32)
+                mask = cv2.fillPoly(mask, points, color=(255, 255, 255), lineType=cv2.LINE_4)
+            frame = np.bitwise_and(frame, mask).astype(np.uint8)
+            bgs = mog2.apply(frame)
+            # Finding contour of moving object
+            if bgs is not None:
+                contours, _ = cv2.findContours(bgs.copy(),
+                                               cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+                has_motion = []
+                contours_filtered = []
+                for contour in contours:
+                    if cv2.contourArea(contour) < area:
+                        has_motion.append(False)
+                    else:
+                        contours_filtered.append(contour)
+                        has_motion.append(True)
+
+                contour_has_motion = any(has_motion)
+                if contour_has_motion:
+                    cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),
+                                (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+                    cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1, color=255,
+                                     thickness=3)
+
+                if len(has_motion) > 0:
+                    if contour_has_motion and detect_time is None:
+                        detect_time = datetime.now()
+                        end_time = None
+                        motion_detected(event_path, camera_id)
+                    if contour_has_motion and detect_time is not None:
+                        detect_time = datetime.now()
+                        end_time = None
+                    else:
+                        # we do not have any motion
+                        if end_time is None and detect_time is not None:
+                            end_time = datetime.now()
+                else:
+                    # we do not have any motion
+                    if end_time is None and detect_time is not None:
+                        end_time = datetime.now()
+
+                if end_time is not None:
+                    new_end_time = end_time + timedelta(seconds=int(post_motion_wait))
+                    diff = new_end_time - datetime.now()
+                    cv2.putText(original_frame, 'Time Elapsed Post Motion End {time}'.format(time=diff / 1000),
+                                (20, 250),
+                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+                    if new_end_time < datetime.now():
+                        motion_not_detected(event_path, camera_id)
+                        end_time = None
+                        detect_time = None
+                if output_motion_video:
+                    video_writer.write(frame)
+                    video_writer_diff.write(bgs)
+        except Exception as e:
+            logging.error(e)
+    else:
+        sleeptime.sleep(2)
+        logging.error(f"no frame discovered for {camera_id} will retry after 2 seconds")
 
 
 if __name__ == '__main__':

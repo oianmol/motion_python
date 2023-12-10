@@ -123,9 +123,9 @@ def execute(num, camera_id):
         processing_thread.start()
 
         for index, thread in enumerate(processing_threads):
-            logging.info("Main    : before joining thread %d. cameraid %d", index,camera_id)
+            logging.info("Main    : before joining thread %d. cameraid %s", index,camera_id)
             thread.join()
-            logging.info("Main    : thread %d done. cameraid %d", index,camera_id)
+            logging.info("Main    : thread %d done. cameraid %s", index,camera_id)
 
     logging.error(f"thread finished for camera {camera_id}")
     video.release()

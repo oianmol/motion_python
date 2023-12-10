@@ -47,33 +47,27 @@ def initial_point_list(w: int, h: int) -> ty.List[Point]:
 
 
 def execute(num, camera_id):
+    os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'  # Use tcp instead of udp if stream is unstable
     mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+    # # # # # # # # # # # # # # # # # # # #
     end_time = None
     detect_time = None
-
     area = parser.getint("camera_" + num, "area")  # Define Min Contour area
     logging.debug("Contour area for camera {num} is {area}".format(num=camera_id, area=area))
-
     blur = parser.defaults().get("blur")
     detect_shadows = parser.getboolean("DEFAULT", "detect_shadows")
     if bool(detect_shadows):
         mog2.setShadowValue(0)
-
     post_motion_wait = parser.defaults().get("post_motion_wait")
-    method = parser.defaults().get("method")
-    logging.debug("Method used for camera {num} is {method}".format(num=camera_id, method=method))
-
-    video_url = parser.get("camera_" + num, "uri")
-    logging.debug("video_url for camera {num} is {video_url}".format(num=camera_id, video_url=video_url))
-
     width = parser.getint("camera_" + num, "width")
     height = parser.getint("camera_" + num, "height")
     fps = parser.getint("camera_" + num, "fps")
     logging.debug("Video Props {width} * {height} @ {fps} fps".format(width=width, height=height, fps=fps))
-
     event_path = str(Path.home()) + os.sep + "events" + os.sep
     Path(event_path).mkdir(parents=True, exist_ok=True)
     logging.debug("Events will be written to {event_path} ".format(event_path=event_path))
+
+    # # # # # # # # # # # # # # # # # #
     video_writer = None
     video_writer_diff = None
     output_motion_video = parser.getboolean("DEFAULT", "output_motion_video")
@@ -85,6 +79,7 @@ def execute(num, camera_id):
         logging.debug(video_file_output)
         video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
         video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
+    # # # # # # # # # # # # # # # # # # # # #
 
     # Region of interest start
     region_of_interest = parser.get("camera_" + num, "regions")
@@ -96,23 +91,22 @@ def execute(num, camera_id):
         it = iter(list(map(int, x)))
         for x in it:
             regions.append(Point(x, next(it)))
-
     if len(regions) == 0:
         initial_region = [initial_point_list(w=width, h=height)]
         regions = initial_region
     # Region of interest end
 
-    os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'  # Use tcp instead of udp if stream is unstable
+    video_url = parser.get("camera_" + num, "uri")
+    logging.debug("video_url for camera {num} is {video_url}".format(num=camera_id, video_url=video_url))
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
+    logging.debug("video instance created for cameraid {num} with {video_url}".format(num=camera_id, video_url=video_url))
 
     # convert timestamp into DateTime object
     # Infinite while loop to treat stack of image as video
     while True:
         # Reading frame(image) from video
         exists, original_frame = video.read()
-        bgs = None
         if exists:
-            delta = timedelta(milliseconds=int(video.get(cv2.CAP_PROP_POS_MSEC)))
             try:
                 frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
                 frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
@@ -139,11 +133,8 @@ def execute(num, camera_id):
 
                     contour_has_motion = any(has_motion)
                     if contour_has_motion:
-                        cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),
-                                    (20, 300),
-                                    cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-                        cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1, color=255,
-                                         thickness=3)
+                        cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),(20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+                        cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1, color=255, thickness=3)
 
                     if len(has_motion) > 0:
                         if contour_has_motion and detect_time is None:
@@ -178,8 +169,10 @@ def execute(num, camera_id):
             except Exception as e:
                 logging.error(e)
         else:
-            logging.error(f"no frame discovered for {camera_id}")
+            sleeptime.sleep(2)
+            logging.error(f"no frame discovered for {camera_id} will retry after 2 seconds")
 
+    logging.error(f"thread finished for camera {camera_id}")
     video.release()
     if output_motion_video:
         logging.debug("releasing video_writer")
@@ -188,24 +181,6 @@ def execute(num, camera_id):
     # Destroying all the windows
     cv2.destroyAllWindows()
 
-
-if __name__ == '__ma in__':
-    logging.debug(datetime.now())
-
-    # Constructing a parser
-    ap = argparse.ArgumentParser()
-    # Adding arguments
-    ap.add_argument("-c", "--config", help="Configuration file for MotionSMC")
-    args = vars(ap.parse_args())
-
-    parser = configparser.ConfigParser()
-    logging.debug("Reading config file " + args["config"])
-    parser.read(args["config"])
-
-    # Capturing video
-    cameras = parser.defaults().get("cameras")
-    logging.debug("Total cameras " + str(cameras))
-    execute("0")
 
 if __name__ == '__main__':
     logging.basicConfig(filename=str(Path.home()) + "/motion_smc_output.log",

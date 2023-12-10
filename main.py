@@ -46,7 +46,11 @@ def initial_point_list(w: int, h: int) -> ty.List[Point]:
     ]
 
 
+total_cameras_created = 0
+
+
 def execute(num, camera_id):
+    global total_cameras_created
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'  # Use tcp instead of udp if stream is unstable
     mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
     # # # # # # # # # # # # # # # # # # # #
@@ -99,8 +103,9 @@ def execute(num, camera_id):
     video_url = parser.get("camera_" + num, "uri")
     logging.debug("video_url for camera {num} is {video_url}".format(num=camera_id, video_url=video_url))
     video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
-    logging.debug("video instance created for cameraid {num} with {video_url}".format(num=camera_id, video_url=video_url))
-
+    total_cameras_created += 1
+    logging.debug(
+        "video instance created for cameraid {num} with {video_url} total created {total_cameras_created}".format(num=camera_id, video_url=video_url,total_cameras_created=total_cameras_created))
     # convert timestamp into DateTime object
     # Infinite while loop to treat stack of image as video
     while True:
@@ -133,8 +138,10 @@ def execute(num, camera_id):
 
                     contour_has_motion = any(has_motion)
                     if contour_has_motion:
-                        cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),(20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-                        cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1, color=255, thickness=3)
+                        cv2.putText(original_frame, 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),
+                                    (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+                        cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1, color=255,
+                                         thickness=3)
 
                     if len(has_motion) > 0:
                         if contour_has_motion and detect_time is None:

@@ -6,19 +6,19 @@ import logging
 import os
 import threading
 import multiprocessing
+
+import MOG2
+import RegionOfInterest
 import time as sleeptime
-from collections import namedtuple
 # importing datetime class from datetime library
 from datetime import datetime, timedelta
 from pathlib import Path
-import typing as ty
 
 # importing OpenCV, time and Pandas library
 import cv2
 import numpy as np
 
-Point = namedtuple("Point", ['x', 'y'])
-Size = namedtuple("Size", ['w', 'h'])
+import VideoStreamWriter
 
 
 def motion_not_detected(event_path, camera_id):
@@ -28,98 +28,49 @@ def motion_not_detected(event_path, camera_id):
 
 
 def motion_detected(event_path, camera_id):
-    "%t_MotionStart_%Y_%m_%d_%H_%M_%S.txt"
     start_time_formatted = camera_id + "_MotionStart_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".txt"
     logging.debug("event started {date_time}".format(date_time=start_time_formatted))
     open(event_path + start_time_formatted, 'w')
 
 
-def initial_point_list(w: int, h: int) -> ty.List[Point]:
-    # For now start with a rectangle covering 1/4 of the frame in the middle.
-    top_left = Point(x=0, y=0)
-    box_size = Size(w=w, h=h)
-    return [
-        top_left,
-        Point(x=top_left.x + box_size.w, y=top_left.y),
-        Point(x=top_left.x + box_size.w, y=top_left.y + box_size.h),
-        Point(x=top_left.x, y=top_left.y + box_size.h),
-    ]
-
-
-total_cameras_created = 0
-
-
 def execute(num, camera_id):
-    global total_cameras_created
     os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'  # Use tcp instead of udp if stream is unstable
-    mog2 = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+    camera_conf_name = "camera_" + num
+
     # # # # # # # # # # # # # # # # # # # #
+    area = parser.getint(camera_conf_name, "area")  # Define Min Contour area
+    blur = parser.getint("DEFAULT", "blur")
+    post_motion_wait = parser.getboolean("DEFAULT", "post_motion_wait")
+    width = parser.getint(camera_conf_name, "width")
+    height = parser.getint(camera_conf_name, "height")
+    fps = parser.getint(camera_conf_name, "fps")
+    event_path = str(Path.home()) + os.sep + "events" + os.sep
+    region_of_interest = parser.get(camera_conf_name, "regions")
+    video_url = parser.get(camera_conf_name, "uri")
+
+    logging.debug(f"Contour area for camera {camera_id} is {area}")
+    logging.debug(f"Video Props {width} * {height} @ {fps} fps")
+    logging.debug(f"Events will be written to {event_path}")
+    logging.debug(f"region_of_interest for camera {camera_id} {region_of_interest}")
+    logging.debug(f"video_url for camera {camera_id} is {video_url}")
+
+    video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
+    logging.debug(f" For camera {camera_id} with {video_url} created")
+
     end_time = None
     detect_time = None
-    area = parser.getint("camera_" + num, "area")  # Define Min Contour area
-    logging.debug("Contour area for camera {num} is {area}".format(num=camera_id, area=area))
-    blur = parser.defaults().get("blur")
-    detect_shadows = parser.getboolean("DEFAULT", "detect_shadows")
-    if bool(detect_shadows):
-        mog2.setShadowValue(0)
-    post_motion_wait = parser.defaults().get("post_motion_wait")
-    width = parser.getint("camera_" + num, "width")
-    height = parser.getint("camera_" + num, "height")
-    fps = parser.getint("camera_" + num, "fps")
-    logging.debug("Video Props {width} * {height} @ {fps} fps".format(width=width, height=height, fps=fps))
-    event_path = str(Path.home()) + os.sep + "events" + os.sep
+    mog2 = MOG2.create(parser)
     Path(event_path).mkdir(parents=True, exist_ok=True)
-    logging.debug("Events will be written to {event_path} ".format(event_path=event_path))
+    video_writer = VideoStreamWriter.create(parser, event_path, fps, width, height)
+    regions = RegionOfInterest.prepare(region_of_interest=region_of_interest, width=width, height=height)
 
-    # # # # # # # # # # # # # # # # # #
-    video_writer = None
-    video_writer_diff = None
-    output_motion_video = parser.getboolean("DEFAULT", "output_motion_video")
-    if output_motion_video:
-        fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
-        logging.debug("video_writer created")
-        video_file_output = event_path + 'output.mp4'
-        video_file_output_diff = event_path + 'output_diff.mp4'
-        logging.debug(video_file_output)
-        video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, (width, height), isColor=False)
-        video_writer_diff = cv2.VideoWriter(video_file_output_diff, fourcc, fps, (width, height), isColor=False)
-    # # # # # # # # # # # # # # # # # # # # #
-
-    # Region of interest start
-    region_of_interest = parser.get("camera_" + num, "regions")
-    logging.debug("region_of_interest for camera {num} {region_of_interest} ".format(num=camera_id,
-                                                                                     region_of_interest=region_of_interest))
-    regions = []
-    if len(region_of_interest) > 0:
-        x = region_of_interest.split(" ")
-        it = iter(list(map(int, x)))
-        for x in it:
-            regions.append(Point(x, next(it)))
-    if len(regions) == 0:
-        initial_region = [initial_point_list(w=width, h=height)]
-        regions = initial_region
-    # Region of interest end
-
-    video_url = parser.get("camera_" + num, "uri")
-    logging.debug("video_url for camera {num} is {video_url}".format(num=camera_id, video_url=video_url))
-    video = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
-    total_cameras_created += 1
-    logging.debug(
-        "video instance created for cameraid {num} with {video_url} total created {total_cameras_created}".format(num=camera_id, video_url=video_url,total_cameras_created=total_cameras_created))
-    # convert timestamp into DateTime object
-    # Infinite while loop to treat stack of image as video
     while True:
-        # Reading frame(image) from video
         exists, original_frame = video.read()
         if exists:
             try:
                 frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
                 frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
-                mask = np.zeros_like(frame, dtype=np.uint8)
-                for shape in [regions]:
-                    points = np.array([shape], np.int32)
-                    mask = cv2.fillPoly(mask, points, color=(255, 255, 255), lineType=cv2.LINE_4)
-                frame = np.bitwise_and(frame, mask).astype(np.uint8)
+                frame = RegionOfInterest.mask(frame, regions)
                 bgs = mog2.apply(frame)
                 # Finding contour of moving object
                 if bgs is not None:
@@ -170,21 +121,18 @@ def execute(num, camera_id):
                             motion_not_detected(event_path, camera_id)
                             end_time = None
                             detect_time = None
-                    if output_motion_video:
+                    if video_writer is not None:
                         video_writer.write(frame)
-                        video_writer_diff.write(bgs)
             except Exception as e:
                 logging.error(e)
         else:
             sleeptime.sleep(2)
             logging.error(f"no frame discovered for {camera_id} will retry after 2 seconds")
 
-    logging.error(f"thread finished for camera {camera_id}")
     video.release()
-    if output_motion_video:
+    if video_writer is not None:
         logging.debug("releasing video_writer")
         video_writer.release()
-        video_writer_diff.release()
     # Destroying all the windows
     cv2.destroyAllWindows()
 

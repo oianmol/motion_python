@@ -64,7 +64,7 @@ class MotionFileProcessor:
                 file_stream = cv2.VideoCapture(video_file_path)
                 while True:
                     (grabbed, original_frame) = file_stream.read()
-                    time.sleep(0.012)
+                    time.sleep(0.008)
                     if grabbed and original_frame is not None:
                         frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
                         frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)

@@ -7,7 +7,7 @@ import cv2
 
 
 class VideoStreamer:
-    def __init__(self, path, queueSize=128):
+    def __init__(self, path, queueSize=128000):
         # initialize the rtsp video stream along with the boolean
         # used to indicate if the thread should be stopped or not
         self.stream = cv2.VideoCapture(path, cv2.CAP_FFMPEG)
@@ -43,6 +43,7 @@ class VideoStreamer:
             if not self.Q.full():
                 # read the next frame from the file
                 (grabbed, frame) = self.stream.read()
+                time.sleep(0.250)
                 # if the `grabbed` boolean is `False`, then we have
                 # reached the end of the video file
                 if not grabbed:

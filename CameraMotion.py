@@ -9,12 +9,11 @@ import cv2
 
 import MOG2
 import RegionOfInterest
-from MotionFileProcessor import MotionFileProcessor
 from VideoStreamer import VideoStreamer
 
 
 class CameraMotion:
-    def __init__(self, camera_conf_name, camera_id, parser):
+    def __init__(self, camera_conf_name, camera_id, parser, motion_file_processor):
         self.video_file_output = None
         self.video_writer = None
         self.t = None
@@ -33,8 +32,9 @@ class CameraMotion:
         self.event_path = str(Path.home()) + os.sep + "events" + os.sep
         self.region_of_interest = parser.get(camera_conf_name, "regions")
         self.video_url = parser.get(camera_conf_name, "uri")
+        self.detect_shadows = parser.getboolean("DEFAULT", "detect_shadows")
+        self.mog2 = MOG2.create(detect_shadows=self.detect_shadows)
         self.log_config(camera_id)
-        self.mog2 = MOG2.create(parser)
         Path(self.event_path).mkdir(parents=True, exist_ok=True)
         self.regions = RegionOfInterest.prepare(region_of_interest=self.region_of_interest, width=self.width,
                                                 height=self.height)
@@ -44,9 +44,7 @@ class CameraMotion:
         logging.debug(f" For camera {camera_id} starting queue processing now.")
         self.end_time = None
         self.detect_time = None
-        self.motion_file_processor = MotionFileProcessor(blur=self.blur, regions=self.regions, area=self.area,
-                                                         camera_id=camera_id, event_path=self.event_path,
-                                                         post_motion_wait=self.post_motion_wait, mog2=self.mog2)
+        self.motion_file_processor = motion_file_processor
 
     def log_config(self, camera_id):
         logging.debug(f"Contour area for camera {camera_id} is {self.area}")
@@ -75,7 +73,6 @@ class CameraMotion:
                 while self.video_stream.more():
                     try:
                         original_frame = self.video_stream.read()
-                        self.motion_file_processor.take(original_frame=original_frame)
 
                         if self.output_motion_video:
                             if self.video_start_time is not None:
@@ -84,6 +81,13 @@ class CameraMotion:
                                     self.video_writer.release()
                                     self.video_writer = None
                                     self.video_start_time = None
+                                    self.motion_file_processor.take(video_file_path=self.video_file_output,
+                                                                    blur=self.blur,
+                                                                    regions=self.regions, area=self.area,
+                                                                    camera_id=self.camera_id,
+                                                                    event_path=self.event_path,
+                                                                    post_motion_wait=self.post_motion_wait,
+                                                                    mog2=self.mog2)
 
                             if self.video_writer is None:
                                 self.video_start_time = datetime.now()
@@ -109,6 +113,7 @@ class CameraMotion:
     def stop(self):
         # indicate that the thread should be stopped
         print(f"thread stopped for cameraid {self.camera_id}")
+        self.motion_file_processor.stop()
         self.video_stream.stop()
         self.video_writer.release()
         self.stopped = True

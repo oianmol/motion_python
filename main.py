@@ -6,12 +6,12 @@ from datetime import datetime
 from pathlib import Path
 
 from CameraMotion import CameraMotion
+from MotionFileProcessor import MotionFileProcessor
 
 os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'  # Use tcp instead of udp if stream is unstable
 
 if __name__ == '__main__':
     process_list = []
-
     try:
         logging.basicConfig(filename=str(Path.home()) + "/motion_smc_output.log",
                             level=logging.DEBUG,
@@ -35,12 +35,15 @@ if __name__ == '__main__':
             # Capturing video
             cameras = int(parser.defaults().get("cameras"))
             logging.debug("Running for {total} cameras ".format(total=str(cameras)))
+            motion_file_processor = MotionFileProcessor().start()
+
             for num in range(0, cameras):
                 camera_conf_name = "camera_" + str(num)
                 camera_id = parser.get(camera_conf_name, "camera_id")
                 disabled = parser.has_option(camera_conf_name, "disabled")
                 if not disabled:
-                    camera_motion = CameraMotion(camera_conf_name, str(camera_id), parser).start()
+                    camera_motion = CameraMotion(camera_conf_name, str(camera_id), parser,
+                                                 motion_file_processor).start()
                     process_list.append(camera_motion)
                     print(f"started cameras {len(process_list)}")
 
@@ -52,5 +55,6 @@ if __name__ == '__main__':
             logging.debug("Config file not provided as arg run with python main.py -c ~/path/to/config.ini")
     except KeyboardInterrupt:
         print('Interrupted')
+        motion_file_processor.stop()
         for process in process_list:
             process.stop()

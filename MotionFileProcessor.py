@@ -1,7 +1,4 @@
 import logging
-import threading
-import time
-from collections import defaultdict
 from datetime import datetime, timedelta
 import cv2
 import RegionOfInterest

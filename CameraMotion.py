@@ -98,7 +98,7 @@ class CameraMotion:
                             frame_height = int(self.video_stream.get_height())
                             frame_size = (frame_width, frame_height)
                             fps = int(self.video_stream.get_fps())
-                            unique_time = self.video_start_time.strftime('%Y%m%dT%H%M%S')[:-3]
+                            unique_time = self.video_start_time.strftime('%Y%m%dT%H%M%S')
                             dir_path = self.event_path + self.camera_id + os.sep
                             Path(dir_path).mkdir(parents=True, exist_ok=True)
                             video_file_output = dir_path + unique_time + ".mp4"

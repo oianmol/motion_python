@@ -60,6 +60,7 @@ class MotionFileProcessor:
                 logging.debug(f"Pending videos in queue {self.processing_queue.qsize()}")
                 end_time = None
                 detect_time = None
+                start_time = datetime.now()
                 file_stream = cv2.VideoCapture(video_file_path)
                 while True:
                     (grabbed, original_frame) = file_stream.read()
@@ -121,5 +122,6 @@ class MotionFileProcessor:
                                     end_time = None
                                     detect_time = None
                     else:
-                        logging.debug(f"Finished processing {video_file_path}")
+
+                        logging.debug(f"Finished processing {video_file_path} {datetime.now() - start_time}")
                         break

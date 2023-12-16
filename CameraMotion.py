@@ -44,8 +44,9 @@ class CameraMotion:
         logging.debug(f" For camera {camera_id} starting queue processing now.")
         self.end_time = None
         self.detect_time = None
-        self.motion_file_processor = MotionFileProcessor(self.blur, self.regions, self.area, camera_id, self.event_path,
-                                                         self.post_motion_wait, self.mog2)
+        self.motion_file_processor = MotionFileProcessor(blur=self.blur, regions=self.regions, area=self.area,
+                                                         camera_id=camera_id, event_path=self.event_path,
+                                                         post_motion_wait=self.post_motion_wait, mog2=self.mog2)
 
     def log_config(self, camera_id):
         logging.debug(f"Contour area for camera {camera_id} is {self.area}")

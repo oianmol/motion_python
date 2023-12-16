@@ -8,7 +8,6 @@ import RegionOfInterest
 
 class MotionFileProcessor:
     def __init__(self, blur, regions, area, camera_id, event_path, post_motion_wait, mog2):
-        self.mog2 = mog2
         self.blur = blur,
         self.regions = regions
         self.area = area
@@ -16,11 +15,10 @@ class MotionFileProcessor:
         self.event_path = event_path
         self.post_motion_wait = post_motion_wait
         self.all_files = []
+        self.mog2 = mog2
 
     def take(self, video_file_path):
-        t = threading.Thread(target=self.update, args=(
-            [str(video_file_path), self.blur, self.regions, self.area, self.camera_id, self.event_path,
-             self.post_motion_wait, self.mog2]))
+        t = threading.Thread(target=self.update, args=(video_file_path,))
         t.daemon = True
         t.start()
         self.all_files.append(t)
@@ -43,7 +41,7 @@ class MotionFileProcessor:
         for file_thread in self.all_files:
             file_thread.stop()
 
-    def update(self, video_file_path, blur, regions, area, camera_id, event_path, post_motion_wait, mog2):
+    def update(self, video_file_path):
         end_time = None
         detect_time = None
         try:
@@ -52,9 +50,9 @@ class MotionFileProcessor:
                 (grabbed, original_frame) = file_stream.read()
                 if grabbed and original_frame is not None:
                     frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
-                    frame = cv2.GaussianBlur(frame, (blur, blur), 0)
-                    frame = RegionOfInterest.mask(frame, regions)
-                    final_frame = mog2.apply(frame)
+                    frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)
+                    frame = RegionOfInterest.mask(frame, self.regions)
+                    final_frame = self.mog2.apply(frame)
                     # Finding contour of moving object
                     if final_frame is not None:
                         contours, _ = cv2.findContours(final_frame.copy(),
@@ -64,7 +62,7 @@ class MotionFileProcessor:
                         has_motion = []
                         contours_filtered = []
                         for contour in contours:
-                            if cv2.contourArea(contour) < area:
+                            if cv2.contourArea(contour) < self.area:
                                 has_motion.append(False)
                             else:
                                 contours_filtered.append(contour)
@@ -83,7 +81,7 @@ class MotionFileProcessor:
                             if contour_has_motion and detect_time is None:
                                 detect_time = datetime.now()
                                 end_time = None
-                                self.motion_detected(event_path, camera_id)
+                                self.motion_detected(self.event_path, self.camera_id)
                             if contour_has_motion and detect_time is not None:
                                 detect_time = datetime.now()
                                 end_time = None
@@ -97,14 +95,14 @@ class MotionFileProcessor:
                                 end_time = datetime.now()
 
                         if end_time is not None:
-                            new_end_time = end_time + timedelta(seconds=int(post_motion_wait))
+                            new_end_time = end_time + timedelta(seconds=int(self.post_motion_wait))
                             diff = new_end_time - datetime.now()
                             cv2.putText(original_frame,
                                         'Time Elapsed Post Motion End {time}'.format(time=diff / 1000),
                                         (20, 250),
                                         cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
                             if new_end_time < datetime.now():
-                                self.motion_not_detected(event_path, camera_id)
+                                self.motion_not_detected(self.event_path, self.camera_id)
                                 end_time = None
                                 detect_time = None
                 else:

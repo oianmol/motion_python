@@ -7,7 +7,7 @@ import cv2
 
 
 class RtspVideoStream:
-    def __init__(self, path, queueSize=60):
+    def __init__(self, path, queueSize=128):
         # initialize the rtsp video stream along with the boolean
         # used to indicate if the thread should be stopped or not
         self.stream = cv2.VideoCapture(path, cv2.CAP_FFMPEG)

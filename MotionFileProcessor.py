@@ -131,5 +131,6 @@ class MotionFileProcessor:
                         self.motion_not_detected(event_path, camera_id)
                         logging.debug(f"Finished processing {video_file_path} {datetime.now() - start_time}")
                         break
-        self.file_stream.release()
-        print(f"file stream released for {camera_id}")
+        if self.file_stream is not None:
+            self.file_stream.release()
+            print(f"file stream released")

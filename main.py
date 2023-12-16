@@ -53,6 +53,9 @@ if __name__ == '__main__':
             for process in process_list:
                 process.start()
 
+            for process in process_list:
+                process.join()
+
             logging.debug(datetime.now())
         else:
             logging.debug("Config file not provided as arg run with python main.py -c ~/path/to/config.ini")

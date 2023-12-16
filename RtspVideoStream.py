@@ -23,6 +23,15 @@ class RtspVideoStream:
         t.start()
         return self
 
+    def get_fps(self):
+        return self.stream.get(5)
+
+    def get_width(self):
+        return self.stream.get(3)
+
+    def get_height(self):
+        return self.stream.get(4)
+
     def update(self):
         # keep looping infinitely
         while True:
@@ -34,7 +43,6 @@ class RtspVideoStream:
             if not self.Q.full():
                 # read the next frame from the file
                 (grabbed, frame) = self.stream.read()
-                time.sleep(0.250)
                 # if the `grabbed` boolean is `False`, then we have
                 # reached the end of the video file
                 if not grabbed:
@@ -56,4 +64,5 @@ class RtspVideoStream:
 
     def stop(self):
         # indicate that the thread should be stopped
+        logging.debug("Video stream stopped! for camera")
         self.stopped = True

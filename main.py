@@ -47,12 +47,9 @@ if __name__ == '__main__':
                 camera_id = parser.get(camera_conf_name, "camera_id")
                 disabled = parser.has_option(camera_conf_name, "disabled")
                 if not disabled:
-                    camera_motion = CameraMotion(camera_conf_name, str(camera_id), parser)
+                    camera_motion = CameraMotion(camera_conf_name, str(camera_id), parser).start()
                     process_list.append(camera_motion)
-
-            for process in process_list:
-                process.start()
-                print(f"started cameras {len(process_list)}")
+                    print(f"started cameras {len(process_list)}")
 
             for process in process_list:
                 process.join()

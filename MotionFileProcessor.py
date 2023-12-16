@@ -11,13 +11,13 @@ import RegionOfInterest
 
 class MotionFileProcessor:
     def __init__(self):
+        self.file_stream = None
         self.stopped = False
         self.processing_queue = Queue(maxsize=150)  # or total cameras
 
     def start(self):
         # start a thread to read frames from the file video stream
         t = threading.Thread(target=self.update, args=())
-        t.daemon = True
         t.start()
         return self
 
@@ -61,9 +61,9 @@ class MotionFileProcessor:
                 end_time = None
                 detect_time = None
                 start_time = datetime.now()
-                file_stream = cv2.VideoCapture(video_file_path)
+                self.file_stream = cv2.VideoCapture(video_file_path)
                 while True:
-                    (grabbed, original_frame) = file_stream.read()
+                    (grabbed, original_frame) = self.file_stream.read()
                     time.sleep(0.0008)
                     if grabbed and original_frame is not None:
                         frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
@@ -126,3 +126,5 @@ class MotionFileProcessor:
 
                         logging.debug(f"Finished processing {video_file_path} {datetime.now() - start_time}")
                         break
+        self.file_stream.release()
+        print(f"file stream released for {camera_id}")

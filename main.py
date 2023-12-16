@@ -12,6 +12,7 @@ os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'  # Use tcp in
 
 if __name__ == '__main__':
     process_list = []
+    motion_file_processor = None
     try:
         logging.basicConfig(filename=str(Path.home()) + "/motion_smc_output.log",
                             level=logging.DEBUG,
@@ -50,11 +51,12 @@ if __name__ == '__main__':
             for process in process_list:
                 process.join()
 
-            logging.debug(datetime.now())
+            print(datetime.now())
         else:
-            logging.debug("Config file not provided as arg run with python main.py -c ~/path/to/config.ini")
+            print("Config file not provided as arg run with python main.py -c ~/path/to/config.ini")
     except KeyboardInterrupt:
-        print('Interrupted')
-        motion_file_processor.stop()
+        print(f'Interrupted {len(process_list)}')
+        if motion_file_processor is not None:
+            motion_file_processor.stop()
         for process in process_list:
             process.stop()

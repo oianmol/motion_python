@@ -66,7 +66,6 @@ class CameraMotion:
 
     def start(self):
         self.t = threading.Thread(target=self.process, args=())
-        self.t.daemon = True
         self.t.start()
         return self
 
@@ -114,15 +113,10 @@ class CameraMotion:
                             self.video_writer.write(original_frame)
                 except Exception as e:
                     logging.error(e)
-
         print(f"loop stopped for cameraid {self.camera_id}")
         self.video_stream.release()
         self.video_writer.release()
 
     def stop(self):
         # indicate that the thread should be stopped
-        print(f"thread stopped for cameraid {self.camera_id}")
-        self.motion_file_processor.stop()
-        self.video_stream.release()
-        self.video_writer.release()
         self.stopped = True

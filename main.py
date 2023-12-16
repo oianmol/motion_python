@@ -36,7 +36,7 @@ if __name__ == '__main__':
             # Capturing video
             cameras = int(parser.defaults().get("cameras"))
             logging.debug("Running for {total} cameras ".format(total=str(cameras)))
-            motion_file_processor = MotionFileProcessor().start()
+            motion_file_processor = MotionFileProcessor()
 
             for num in range(0, cameras):
                 camera_conf_name = "camera_" + str(num)

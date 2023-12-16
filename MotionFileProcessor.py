@@ -11,7 +11,6 @@ import RegionOfInterest
 
 class MotionFileProcessor:
     def __init__(self):
-        self.file_stream = None
         self.stopped = False
 
     def take(self, video_file_path, blur, regions, area, camera_id, event_path, post_motion_wait, mog2):
@@ -39,14 +38,9 @@ class MotionFileProcessor:
         end_time = None
         detect_time = None
         start_time = datetime.now()
-        try:
-            if self.file_stream is not None:
-                self.file_stream.release()
-        except Exception as e:
-            logging.error(e)
-        self.file_stream = cv2.VideoCapture(video_file_path)
+        file_stream = cv2.VideoCapture(video_file_path)
         while not self.stopped:
-            (grabbed, original_frame) = self.file_stream.read()
+            (grabbed, original_frame) = file_stream.read()
             time.sleep(0.0008)
             if grabbed and original_frame is not None:
                 frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
@@ -109,6 +103,6 @@ class MotionFileProcessor:
                 self.motion_not_detected(event_path, camera_id)
                 logging.debug(f"Finished processing {video_file_path} {datetime.now() - start_time}")
                 break
-        if self.file_stream is not None:
-            self.file_stream.release()
+        if file_stream is not None:
+            file_stream.release()
             print(f"file stream released")

@@ -102,9 +102,8 @@ class CameraMotion:
                             dir_path = self.event_path + self.camera_id + os.sep
                             Path(dir_path).mkdir(parents=True, exist_ok=True)
                             video_file_output = dir_path + unique_time + ".mp4"
-                            self.video_writer = cv2.VideoWriter(video_file_output,
-                                                                cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), fps,
-                                                                frame_size)
+                            fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
+                            self.video_writer = cv2.VideoWriter(video_file_output, fourcc, fps, frame_size)
                         # try:
                         #     frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
                         #     frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)

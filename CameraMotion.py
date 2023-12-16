@@ -79,10 +79,10 @@ class CameraMotion:
                             if self.video_start_time is not None:
                                 diff_time = datetime.now() - self.video_start_time
                                 if diff_time >= timedelta(seconds=10):
-                                    self.motion_file_processor.take(video_file_path=self.video_file_output)
                                     self.video_writer.release()
                                     self.video_writer = None
                                     self.video_start_time = None
+                                    self.motion_file_processor.take(video_file_path=self.video_file_output)
 
                             if self.video_writer is None:
                                 self.video_start_time = datetime.now()

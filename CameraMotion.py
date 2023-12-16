@@ -147,7 +147,8 @@ class CameraMotion:
                                     self.motion_not_detected(self.event_path, self.camera_id)
                                     self.end_time = None
                                     self.detect_time = None
-                        self.video_writer.write(original_frame)
+                        if self.video_writer is not None:
+                            self.video_writer.write(original_frame)
                     except Exception as e:
                         logging.error(e)
 

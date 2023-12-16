@@ -2,17 +2,10 @@ import argparse
 import configparser
 import logging
 import os
-import threading
-import time
-import time as sleeptime
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-import cv2
-import MOG2
-import RegionOfInterest
-import VideoStreamWriter
+
 from CameraMotion import CameraMotion
-from RtspVideoStream import RtspVideoStream
 
 os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;tcp'  # Use tcp instead of udp if stream is unstable
 

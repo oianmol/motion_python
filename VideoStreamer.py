@@ -6,7 +6,7 @@ from threading import Thread
 import cv2
 
 
-class RtspVideoStream:
+class VideoStreamer:
     def __init__(self, path, queueSize=128):
         # initialize the rtsp video stream along with the boolean
         # used to indicate if the thread should be stopped or not

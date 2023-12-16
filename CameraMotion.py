@@ -18,6 +18,10 @@ class CameraMotion:
         self.video_writer = None
         self.t = None
         self.stopped = False
+
+        self.video_start_time = None
+        self.video_next_time = None
+
         self.camera_id = camera_id
         self.area = parser.getint(camera_conf_name, "area")  # Define Min Contour area
         self.blur = parser.getint("DEFAULT", "blur")
@@ -80,75 +84,86 @@ class CameraMotion:
                 # logging.debug(f" For camera {self.camera_id} has frames, will process now")
                 while self.video_stream.more():
                     original_frame = self.video_stream.read()
-                    # if self.output_motion_video:
-                    #     if self.video_writer is None:
-                    #         frame_width = int(self.video_stream.get_width())
-                    #         frame_height = int(self.video_stream.get_height())
-                    #         frame_size = (frame_width, frame_height)
-                    #         fps = int(self.video_stream.get_fps())
-                    #         video_file_output = self.event_path + 'output.mp4'
-                    #         self.video_writer = cv2.VideoWriter(video_file_output,
-                    #                                             cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), fps,
-                    #                                             frame_size)
-                    # try:
-                    #     frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
-                    #     frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)
-                    #     frame = RegionOfInterest.mask(frame, self.regions)
-                    #     final_frame = self.mog2.apply(frame)
-                    #     # Finding contour of moving object
-                    #     if final_frame is not None:
-                    #         contours, _ = cv2.findContours(final_frame.copy(),
-                    #                                        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    #         contours = sorted(contours, key=cv2.contourArea, reverse=True)
-                    #
-                    #         has_motion = []
-                    #         contours_filtered = []
-                    #         for contour in contours:
-                    #             if cv2.contourArea(contour) < self.area:
-                    #                 has_motion.append(False)
-                    #             else:
-                    #                 contours_filtered.append(contour)
-                    #                 has_motion.append(True)
-                    #
-                    #         contour_has_motion = any(has_motion)
-                    #         if contour_has_motion:
-                    #             cv2.putText(original_frame,
-                    #                         'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),
-                    #                         (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-                    #             cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1,
-                    #                              color=255,
-                    #                              thickness=3)
-                    #
-                    #         if len(has_motion) > 0:
-                    #             if contour_has_motion and self.detect_time is None:
-                    #                 self.detect_time = datetime.now()
-                    #                 self.end_time = None
-                    #                 self.motion_detected(self.event_path, self.camera_id)
-                    #             if contour_has_motion and self.detect_time is not None:
-                    #                 self.detect_time = datetime.now()
-                    #                 self.end_time = None
-                    #             else:
-                    #                 # we do not have any motion
-                    #                 if self.end_time is None and self.detect_time is not None:
-                    #                     self.end_time = datetime.now()
-                    #         else:
-                    #             # we do not have any motion
-                    #             if self.end_time is None and self.detect_time is not None:
-                    #                 self.end_time = datetime.now()
-                    #
-                    #         if self.end_time is not None:
-                    #             new_end_time = self.end_time + timedelta(seconds=int(self.post_motion_wait))
-                    #             diff = new_end_time - datetime.now()
-                    #             cv2.putText(original_frame,
-                    #                         'Time Elapsed Post Motion End {time}'.format(time=diff / 1000),
-                    #                         (20, 250),
-                    #                         cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-                    #             if new_end_time < datetime.now():
-                    #                 self.motion_not_detected(self.event_path, self.camera_id)
-                    #                 self.end_time = None
-                    #                 self.detect_time = None
-                    #     if self.video_writer is not None:
-                    #         self.video_writer.write(original_frame)
+                    if self.output_motion_video:
+                        if self.video_next_time is not None:
+                            video_time_finished = self.video_next_time >= datetime.now()
+                            if video_time_finished:
+                                self.video_writer.release()
+                                self.video_writer = None
+
+                        if self.video_writer is None:
+                            self.video_start_time = datetime.now()
+                            self.video_next_time = self.video_start_time + timedelta(minutes=5)
+                            frame_width = int(self.video_stream.get_width())
+                            frame_height = int(self.video_stream.get_height())
+                            frame_size = (frame_width, frame_height)
+                            fps = int(self.video_stream.get_fps())
+                            unique_time = self.video_start_time.strftime('%Y%m%dT%H%M%S')[:-3]
+                            dir_path = self.event_path + self.camera_id + os.sep
+                            Path(dir_path).mkdir(parents=True, exist_ok=True)
+                            video_file_output = dir_path + unique_time + ".mp4"
+                            self.video_writer = cv2.VideoWriter(video_file_output,
+                                                                cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), fps,
+                                                                frame_size)
+                        # try:
+                        #     frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
+                        #     frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)
+                        #     frame = RegionOfInterest.mask(frame, self.regions)
+                        #     final_frame = self.mog2.apply(frame)
+                        #     # Finding contour of moving object
+                        #     if final_frame is not None:
+                        #         contours, _ = cv2.findContours(final_frame.copy(),
+                        #                                        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        #         contours = sorted(contours, key=cv2.contourArea, reverse=True)
+                        #
+                        #         has_motion = []
+                        #         contours_filtered = []
+                        #         for contour in contours:
+                        #             if cv2.contourArea(contour) < self.area:
+                        #                 has_motion.append(False)
+                        #             else:
+                        #                 contours_filtered.append(contour)
+                        #                 has_motion.append(True)
+                        #
+                        #         contour_has_motion = any(has_motion)
+                        #         if contour_has_motion:
+                        #             cv2.putText(original_frame,
+                        #                         'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),
+                        #                         (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+                        #             cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1,
+                        #                              color=255,
+                        #                              thickness=3)
+                        #
+                        #         if len(has_motion) > 0:
+                        #             if contour_has_motion and self.detect_time is None:
+                        #                 self.detect_time = datetime.now()
+                        #                 self.end_time = None
+                        #                 self.motion_detected(self.event_path, self.camera_id)
+                        #             if contour_has_motion and self.detect_time is not None:
+                        #                 self.detect_time = datetime.now()
+                        #                 self.end_time = None
+                        #             else:
+                        #                 # we do not have any motion
+                        #                 if self.end_time is None and self.detect_time is not None:
+                        #                     self.end_time = datetime.now()
+                        #         else:
+                        #             # we do not have any motion
+                        #             if self.end_time is None and self.detect_time is not None:
+                        #                 self.end_time = datetime.now()
+                        #
+                        #         if self.end_time is not None:
+                        #             new_end_time = self.end_time + timedelta(seconds=int(self.post_motion_wait))
+                        #             diff = new_end_time - datetime.now()
+                        #             cv2.putText(original_frame,
+                        #                         'Time Elapsed Post Motion End {time}'.format(time=diff / 1000),
+                        #                         (20, 250),
+                        #                         cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+                        #             if new_end_time < datetime.now():
+                        #                 self.motion_not_detected(self.event_path, self.camera_id)
+                        #                 self.end_time = None
+                        #                 self.detect_time = None
+                        if self.video_writer is not None:
+                            self.video_writer.write(original_frame)
                     # except Exception as e:
                     #     logging.error(e)
 

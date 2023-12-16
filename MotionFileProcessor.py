@@ -61,6 +61,11 @@ class MotionFileProcessor:
                 end_time = None
                 detect_time = None
                 start_time = datetime.now()
+                try:
+                    if self.file_stream is not None:
+                        self.file_stream.release()
+                except Exception as e:
+                    logging.error(e)
                 self.file_stream = cv2.VideoCapture(video_file_path)
                 while True:
                     (grabbed, original_frame) = self.file_stream.read()

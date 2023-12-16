@@ -46,7 +46,7 @@ class VideoStreamer:
                 # if the `grabbed` boolean is `False`, then we have
                 # reached the end of the video file
                 if not grabbed:
-                    self.stop()
+                    time.sleep(10)  # wait for 10 seconds before reading from video stream again.
                     return
                 # add the frame to the queue
                 self.Q.put(frame)

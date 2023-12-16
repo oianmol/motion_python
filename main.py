@@ -52,6 +52,9 @@ if __name__ == '__main__':
                     print(f"started cameras {len(process_list)}")
 
             for process in process_list:
+                process.start()
+
+            for process in process_list:
                 process.join()
 
             logging.debug(datetime.now())

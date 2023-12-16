@@ -75,7 +75,7 @@ class CameraMotion:
                 while self.video_stream.more():
                     try:
                         original_frame = self.video_stream.read()
-                        self.motion_file_processor.take(original_frame=original_frame)
+                        # self.motion_file_processor.take(original_frame=original_frame)
 
                         if self.output_motion_video:
                             if self.video_start_time is not None:

@@ -100,7 +100,8 @@ class MotionFileProcessor:
                             end_time = None
                             detect_time = None
             else:
-                self.motion_not_detected(event_path, camera_id)
+                if end_time is not None or detect_time is not None:
+                    self.motion_not_detected(event_path, camera_id)
                 logging.debug(f"Finished processing {video_file_path} {datetime.now() - start_time}")
                 break
         if file_stream is not None:

@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 import cv2
@@ -47,6 +48,7 @@ class MotionFileProcessor:
         file_stream = cv2.VideoCapture(video_file_path)
         while True:
             (grabbed, original_frame) = file_stream.read()
+            time.sleep(0.250) ## delay for FPS since it's 4.0
             if grabbed and original_frame is not None:
                 frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
                 frame = cv2.GaussianBlur(frame, (int(self.blur[0]), int(self.blur[0])), 0)

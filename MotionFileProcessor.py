@@ -9,7 +9,7 @@ import RegionOfInterest
 
 class MotionFileProcessor:
     def __init__(self, blur, regions, area, camera_id, event_path, post_motion_wait, mog2):
-        self.blur = blur,
+        self.blur = blur
         self.regions = regions
         self.area = area
         self.camera_id = camera_id
@@ -51,7 +51,7 @@ class MotionFileProcessor:
             time.sleep(0.250) ## delay for FPS since it's 4.0
             if grabbed and original_frame is not None:
                 frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
-                frame = cv2.GaussianBlur(frame, (int(self.blur[0]), int(self.blur[0])), 0)
+                frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)
                 frame = RegionOfInterest.mask(frame, self.regions)
                 final_frame = self.mog2.apply(frame)
                 # Finding contour of moving object

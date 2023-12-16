@@ -20,7 +20,7 @@ class MotionFileProcessor:
         if original_frame is not None:
             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
             frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)
-            frame = RegionOfInterest.mask(frame, self.regions)
+            # frame = RegionOfInterest.mask(frame, self.regions)
             final_frame = self.mog2.apply(frame)
             # Finding contour of moving object
             if final_frame is not None:
@@ -38,13 +38,13 @@ class MotionFileProcessor:
                         has_motion.append(True)
 
                 contour_has_motion = any(has_motion)
-                if contour_has_motion:
-                    cv2.putText(original_frame,
-                                'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),
-                                (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
-                    cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1,
-                                     color=255,
-                                     thickness=3)
+                # if contour_has_motion:
+                #     cv2.putText(original_frame,
+                #                 'Motion Detected' + datetime.now().strftime("%m-%d-%Y_%H:%M:%S"),
+                #                 (20, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+                #     cv2.drawContours(image=original_frame, contours=contours_filtered, contourIdx=-1,
+                #                      color=255,
+                #                      thickness=3)
 
                 if len(has_motion) > 0:
                     if contour_has_motion and self.detect_time is None:
@@ -65,11 +65,11 @@ class MotionFileProcessor:
 
                 if self.end_time is not None:
                     new_end_time = self.end_time + timedelta(seconds=int(self.post_motion_wait))
-                    diff = new_end_time - datetime.now()
-                    cv2.putText(original_frame,
-                                'Time Elapsed Post Motion End {time}'.format(time=diff / 1000),
-                                (20, 250),
-                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
+                    # diff = new_end_time - datetime.now()
+                    # cv2.putText(original_frame,
+                    #             'Time Elapsed Post Motion End {time}'.format(time=diff / 1000),
+                    #             (20, 250),
+                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 255, 2))
                     if new_end_time < datetime.now():
                         self.motion_not_detected(self.event_path, self.camera_id)
                         self.end_time = None

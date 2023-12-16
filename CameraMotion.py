@@ -85,9 +85,9 @@ class CameraMotion:
                 while self.video_stream.more():
                     original_frame = self.video_stream.read()
                     if self.output_motion_video:
-                        if self.video_next_time is not None:
-                            video_time_finished = self.video_next_time >= datetime.now()
-                            if video_time_finished:
+                        if self.video_start_time is not None:
+                            diff_time = datetime.now() - self.video_start_time
+                            if diff_time >= timedelta(minutes=5):
                                 self.video_writer.release()
                                 self.video_writer = None
                                 self.video_start_time = None
@@ -95,7 +95,6 @@ class CameraMotion:
 
                         if self.video_writer is None:
                             self.video_start_time = datetime.now()
-                            self.video_next_time = self.video_start_time + timedelta(minutes=5)
                             frame_width = int(self.video_stream.get_width())
                             frame_height = int(self.video_stream.get_height())
                             frame_size = (frame_width, frame_height)

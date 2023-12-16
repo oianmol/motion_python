@@ -51,7 +51,6 @@ class RtspVideoStream:
                 # add the frame to the queue
                 self.Q.put(frame)
             else:
-                print(f"queue size > {self.Q.qsize()}")
                 logging.error("Queue full cannot add more frames")
 
     def read(self):

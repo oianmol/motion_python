@@ -1,4 +1,5 @@
 import logging
+import time
 from queue import Queue
 from threading import Thread
 
@@ -33,6 +34,7 @@ class RtspVideoStream:
             if not self.Q.full():
                 # read the next frame from the file
                 (grabbed, frame) = self.stream.read()
+                time.sleep(0.250)
                 # if the `grabbed` boolean is `False`, then we have
                 # reached the end of the video file
                 if not grabbed:

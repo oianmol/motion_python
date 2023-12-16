@@ -53,7 +53,7 @@ def execute(num, camera_id):
     video_stream = RtspVideoStream(video_url).start()
     logging.debug(f" For camera {camera_id} with {video_url} created")
     time.sleep(1.0)
-    logging.debug(f" For camera {camera_id} waiting to capture frames for 1 second")
+    logging.debug(f" For camera {camera_id} starting queue processing now.")
 
     end_time = None
     detect_time = None
@@ -64,7 +64,6 @@ def execute(num, camera_id):
             time.sleep(2.0)
         else:
             logging.debug(f" For camera {camera_id} has frames, will process now")
-            time.sleep(1.0)  # wait for 1 second before reading frames from queue.
             while video_stream.more():
                 original_frame = video_stream.read()
                 try:

@@ -1,3 +1,4 @@
+import logging
 from queue import Queue
 from threading import Thread
 
@@ -5,7 +6,7 @@ import cv2
 
 
 class RtspVideoStream:
-    def __init__(self, path, queueSize=128):
+    def __init__(self, path, queueSize=1500):
         # initialize the rtsp video stream along with the boolean
         # used to indicate if the thread should be stopped or not
         self.stream = cv2.VideoCapture(path, cv2.CAP_FFMPEG)
@@ -39,6 +40,9 @@ class RtspVideoStream:
                     return
                 # add the frame to the queue
                 self.Q.put(frame)
+            else:
+                print(f"queue size > {self.Q.qsize()}")
+                logging.error("Queue full cannot add more frames")
 
     def read(self):
         # return next frame in the queue

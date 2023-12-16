@@ -109,7 +109,6 @@ class CameraMotion:
     def stop(self):
         # indicate that the thread should be stopped
         print(f"thread stopped for cameraid {self.camera_id}")
-        self.motion_file_processor.stop()
         self.video_stream.stop()
         self.video_writer.release()
         self.stopped = True

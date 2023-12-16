@@ -90,6 +90,8 @@ class CameraMotion:
                             if video_time_finished:
                                 self.video_writer.release()
                                 self.video_writer = None
+                                self.video_start_time = None
+                                self.video_next_time = None
 
                         if self.video_writer is None:
                             self.video_start_time = datetime.now()

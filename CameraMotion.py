@@ -45,7 +45,7 @@ class CameraMotion:
         self.end_time = None
         self.detect_time = None
         self.motion_file_processor = MotionFileProcessor(self.blur, self.regions, self.area, camera_id, self.event_path,
-                                                         self.post_motion_wait,self.mog2)
+                                                         self.post_motion_wait, self.mog2)
 
     def log_config(self, camera_id):
         logging.debug(f"Contour area for camera {camera_id} is {self.area}")
@@ -78,7 +78,7 @@ class CameraMotion:
                             if self.video_start_time is not None:
                                 diff_time = datetime.now() - self.video_start_time
                                 if diff_time >= timedelta(minutes=1):
-                                    self.motion_file_processor.take(self.video_file_output)
+                                    self.motion_file_processor.take(video_file_path=self.video_file_output)
                                     self.video_writer.release()
                                     self.video_writer = None
                                     self.video_start_time = None

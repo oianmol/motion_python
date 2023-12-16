@@ -18,7 +18,7 @@ class MotionFileProcessor:
         self.all_files = []
 
     def take(self, video_file_path):
-        t = threading.Thread(target=self.update, args=([video_file_path]))
+        t = threading.Thread(target=self.update, args=([str(video_file_path)]))
         t.daemon = True
         t.start()
         self.all_files.append(t)

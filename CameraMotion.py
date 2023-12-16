@@ -80,7 +80,7 @@ class CameraMotion:
                         if self.output_motion_video:
                             if self.video_start_time is not None:
                                 diff_time = datetime.now() - self.video_start_time
-                                if diff_time >= timedelta(seconds=4):
+                                if diff_time >= timedelta(minutes=5):
                                     self.video_writer.release()
                                     self.video_writer = None
                                     self.video_start_time = None

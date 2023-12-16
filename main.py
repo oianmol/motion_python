@@ -52,6 +52,7 @@ if __name__ == '__main__':
 
             for process in process_list:
                 process.start()
+                print(f"started cameras {len(process_list)}")
 
             for process in process_list:
                 process.join()

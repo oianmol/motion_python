@@ -70,7 +70,7 @@ class MotionFileProcessor:
                         time.sleep(0.0002)
                         if grabbed and original_frame is not None:
                             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
-                            # frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
+                            frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
                             # frame = RegionOfInterest.mask(frame, regions)
                             # final_frame = mog2.apply(frame)
                             # # Finding contour of moving object

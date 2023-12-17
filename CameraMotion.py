@@ -115,13 +115,9 @@ class CameraMotion:
                                                                 isColor=False)
                         else:
                             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
-                            print(frame)
                             frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)
-                            print(frame)
                             frame = RegionOfInterest.mask(frame, self.regions)
-                            print(frame)
                             self.video_writer.write(frame)
-                            print("frame written")
                 except Exception as e:
                     logging.error(e)
         print(f"loop stopped for cameraid {self.camera_id}")

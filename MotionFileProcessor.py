@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from queue import Queue
 
 import cv2
+from vidgear.gears import VideoGear
 
 import RegionOfInterest
 
@@ -64,7 +65,7 @@ class MotionFileProcessor:
                     end_time = None
                     detect_time = None
                     start_time = datetime.now()
-                    self.file_stream = cv2.VideoCapture(video_file_path)
+                    self.file_stream = VideoGear(source=video_file_path).start()
                     while True:
                         (grabbed, original_frame) = self.file_stream.read()
                         time.sleep(0.0002)
@@ -131,5 +132,5 @@ class MotionFileProcessor:
                             logging.debug(f"Finished processing {video_file_path} {datetime.now() - start_time}")
                             break
         if self.file_stream is not None:
-            self.file_stream.release()
+            self.file_stream.stop()
             print(f"file stream released")

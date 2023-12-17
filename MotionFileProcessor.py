@@ -67,9 +67,9 @@ class MotionFileProcessor:
                     start_time = datetime.now()
                     self.file_stream = VideoGear(source=video_file_path).start()
                     while True:
-                        (grabbed, original_frame) = self.file_stream.read()
+                        original_frame = self.file_stream.read()
                         time.sleep(0.0002)
-                        if grabbed and original_frame is not None:
+                        if original_frame is not None:
                             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
                             frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
                             frame = RegionOfInterest.mask(frame, regions)

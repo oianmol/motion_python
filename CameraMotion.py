@@ -4,7 +4,6 @@ import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from vidgear.gears import VideoGear
 
 import cv2
 
@@ -52,10 +51,7 @@ class CameraMotion:
         Path(self.event_path).mkdir(parents=True, exist_ok=True)
         self.regions = RegionOfInterest.prepare(region_of_interest=self.region_of_interest, width=self.width,
                                                 height=self.height)
-        # self.video_stream = cv2.VideoCapture(self.video_url, cv2.CAP_FFMPEG)
-        self.video_stream = VideoGear(source=self.video_url, stabilize=True, resolution=(self.width, self.height),
-                                      framerate=self.fps, camera_num=camera_id, logging=True)
-
+        self.video_stream = cv2.VideoCapture(self.video_url, cv2.CAP_FFMPEG)
         logging.debug(f" For camera {camera_id} with {self.video_url} created")
         time.sleep(1.0)
         logging.debug(f" For camera {camera_id} starting queue processing now.")
@@ -79,11 +75,10 @@ class CameraMotion:
         return self
 
     def process(self):
-        self.video_stream.start()
         while not self.stopped:
-            original_frame = self.video_stream.read()
+            (grabbed, original_frame) = self.video_stream.read()
             time.sleep(0.200)
-            if original_frame is None:
+            if not grabbed:
                 # logging.debug(f" For camera {self.camera_id} no more frames, waiting for 2 seconds")
                 time.sleep(2.0)
             else:
@@ -106,10 +101,10 @@ class CameraMotion:
 
                         if self.video_writer is None:
                             self.video_start_time = datetime.now()
-                            frame_width = int(self.width)
-                            frame_height = int(self.height)
+                            frame_width = int(get_width(self.video_stream))
+                            frame_height = int(get_height(self.video_stream))
                             frame_size = (frame_width, frame_height)
-                            fps = int(self.fps)
+                            fps = int(get_fps(self.video_stream))
                             unique_time = self.video_start_time.strftime('%Y%m%dT%H%M%S')
                             dir_path = self.event_path + self.camera_id + os.sep
                             Path(dir_path).mkdir(parents=True, exist_ok=True)
@@ -121,7 +116,7 @@ class CameraMotion:
                 except Exception as e:
                     logging.error(e)
         print(f"loop stopped for cameraid {self.camera_id}")
-        self.video_stream.stop()
+        self.video_stream.release()
         self.video_writer.release()
 
     def stop(self):

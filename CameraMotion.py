@@ -53,7 +53,8 @@ class CameraMotion:
         self.regions = RegionOfInterest.prepare(region_of_interest=self.region_of_interest, width=self.width,
                                                 height=self.height)
         # self.video_stream = cv2.VideoCapture(self.video_url, cv2.CAP_FFMPEG)
-        self.video_stream = VideoGear(source=self.video_url, stabilize=True).start()
+        self.video_stream = VideoGear(source=self.video_url, stabilize=True, resolution=(self.width, self.height),
+                                      framerate=self.fps, camera_num=camera_id, logging=True).start()
 
         logging.debug(f" For camera {camera_id} with {self.video_url} created")
         time.sleep(1.0)
@@ -104,10 +105,10 @@ class CameraMotion:
 
                         if self.video_writer is None:
                             self.video_start_time = datetime.now()
-                            frame_width = int(get_width(self.video_stream))
-                            frame_height = int(get_height(self.video_stream))
+                            frame_width = int(self.width)
+                            frame_height = int(self.height)
                             frame_size = (frame_width, frame_height)
-                            fps = int(get_fps(self.video_stream))
+                            fps = int(self.fps)
                             unique_time = self.video_start_time.strftime('%Y%m%dT%H%M%S')
                             dir_path = self.event_path + self.camera_id + os.sep
                             Path(dir_path).mkdir(parents=True, exist_ok=True)

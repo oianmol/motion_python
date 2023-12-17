@@ -9,6 +9,7 @@ import cv2
 
 import MOG2
 import RegionOfInterest
+from MotionFileProcessor import MotionFileProcessor
 
 
 def get_fps(stream):
@@ -24,13 +25,14 @@ def get_height(stream):
 
 
 class CameraMotion:
-    def __init__(self, camera_conf_name, camera_id, parser, motion_file_processor):
+    def __init__(self, camera_conf_name, camera_id, parser):
         self.video_file_output = None
         self.video_writer = None
         self.t = None
         self.stopped = False
 
         self.video_start_time = None
+        self.motion_file_processor = MotionFileProcessor()
 
         self.camera_id = camera_id
         self.area = parser.getint(camera_conf_name, "area")  # Define Min Contour area
@@ -55,7 +57,6 @@ class CameraMotion:
         logging.debug(f" For camera {camera_id} starting queue processing now.")
         self.end_time = None
         self.detect_time = None
-        self.motion_file_processor = motion_file_processor
 
     def log_config(self, camera_id):
         logging.debug(f"Contour area for camera {camera_id} is {self.area}")

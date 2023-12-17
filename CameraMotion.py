@@ -54,7 +54,7 @@ class CameraMotion:
                                                 height=self.height)
         # self.video_stream = cv2.VideoCapture(self.video_url, cv2.CAP_FFMPEG)
         self.video_stream = VideoGear(source=self.video_url, stabilize=True, resolution=(self.width, self.height),
-                                      framerate=self.fps, camera_num=camera_id, logging=True).start()
+                                      framerate=self.fps, camera_num=camera_id, logging=True)
 
         logging.debug(f" For camera {camera_id} with {self.video_url} created")
         time.sleep(1.0)
@@ -79,6 +79,7 @@ class CameraMotion:
         return self
 
     def process(self):
+        self.video_stream.start()
         while not self.stopped:
             original_frame = self.video_stream.read()
             time.sleep(0.200)
@@ -120,7 +121,7 @@ class CameraMotion:
                 except Exception as e:
                     logging.error(e)
         print(f"loop stopped for cameraid {self.camera_id}")
-        self.video_stream.release()
+        self.video_stream.stop()
         self.video_writer.release()
 
     def stop(self):

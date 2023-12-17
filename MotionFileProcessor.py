@@ -136,7 +136,7 @@ class MotionFileProcessor:
 
         while not self.stopped:
             (grabbed, original_frame) = file_stream.read()
-            time.sleep(0.0008)
+            time.sleep(0.0001)
             if grabbed and original_frame is not None:
                 frame_gray = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
                 vis = original_frame.copy()

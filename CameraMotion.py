@@ -112,7 +112,10 @@ class CameraMotion:
                             fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
                             self.video_writer = cv2.VideoWriter(self.video_file_output, fourcc, fps, frame_size)
                         if self.video_writer is not None:
-                            self.video_writer.write(original_frame)
+                            frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
+                            frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)
+                            frame = RegionOfInterest.mask(frame, self.regions)
+                            self.video_writer.write(frame)
                 except Exception as e:
                     logging.error(e)
         print(f"loop stopped for cameraid {self.camera_id}")

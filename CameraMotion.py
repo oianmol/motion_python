@@ -4,7 +4,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from vidgear.gears import VideoGear
+from vidgear.gears import VideoGear, WriteGear
 
 import cv2
 
@@ -93,7 +93,7 @@ class CameraMotion:
                         if self.video_start_time is not None:
                             diff_time = datetime.now() - self.video_start_time
                             if diff_time >= timedelta(minutes=1):
-                                self.video_writer.release()
+                                self.video_writer.close()
                                 self.video_writer = None
                                 self.video_start_time = None
                                 self.motion_file_processor.take(video_file_path=self.video_file_output,
@@ -106,23 +106,18 @@ class CameraMotion:
 
                         if self.video_writer is None:
                             self.video_start_time = datetime.now()
-                            frame_width = int(self.width)
-                            frame_height = int(self.height)
-                            frame_size = (frame_width, frame_height)
-                            fps = int(self.fps)
                             unique_time = self.video_start_time.strftime('%Y%m%dT%H%M%S')
                             dir_path = self.event_path + self.camera_id + os.sep
                             Path(dir_path).mkdir(parents=True, exist_ok=True)
                             self.video_file_output = dir_path + unique_time + ".mp4"
-                            fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
-                            self.video_writer = cv2.VideoWriter(self.video_file_output, fourcc, fps, frame_size)
+                            self.video_writer = WriteGear(output=self.video_file_output,logging=False)
                         if self.video_writer is not None:
                             self.video_writer.write(original_frame)
                 except Exception as e:
                     logging.error(e)
         print(f"loop stopped for cameraid {self.camera_id}")
         self.video_stream.stop()
-        self.video_writer.release()
+        self.video_writer.close()
 
     def stop(self):
         # indicate that the thread should be stopped

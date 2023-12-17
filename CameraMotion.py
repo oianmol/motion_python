@@ -87,7 +87,8 @@ class CameraMotion:
                     if self.output_motion_video:
                         if self.video_start_time is not None:
                             diff_time = datetime.now() - self.video_start_time
-                            if diff_time >= timedelta(minutes=1):
+                            if diff_time >= timedelta(seconds=5):
+                                print("released video")
                                 self.video_writer.release()
                                 self.video_writer = None
                                 self.video_start_time = None
@@ -110,12 +111,17 @@ class CameraMotion:
                             Path(dir_path).mkdir(parents=True, exist_ok=True)
                             self.video_file_output = dir_path + unique_time + ".mp4"
                             fourcc = cv2.VideoWriter.fourcc('m', 'p', '4', 'v')
-                            self.video_writer = cv2.VideoWriter(self.video_file_output, fourcc, fps, frame_size)
-                        if self.video_writer is not None:
+                            self.video_writer = cv2.VideoWriter(self.video_file_output, fourcc, fps, frame_size,
+                                                                isColor=False)
+                        else:
                             frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
+                            print(frame)
                             frame = cv2.GaussianBlur(frame, (int(self.blur), int(self.blur)), 0)
+                            print(frame)
                             frame = RegionOfInterest.mask(frame, self.regions)
+                            print(frame)
                             self.video_writer.write(frame)
+                            print("frame written")
                 except Exception as e:
                     logging.error(e)
         print(f"loop stopped for cameraid {self.camera_id}")

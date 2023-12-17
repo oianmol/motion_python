@@ -67,6 +67,8 @@ class MotionFileProcessor:
                     self.file_stream = cv2.VideoCapture(video_file_path)
                     while True:
                         (grabbed, original_frame) = self.file_stream.read()
+                        print(grabbed)
+                        print(original_frame)
                         time.sleep(0.0002)
                         if grabbed and original_frame is not None:
                             final_frame = mog2.apply(original_frame)

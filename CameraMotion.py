@@ -4,6 +4,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from vidgear.gears import VideoGear
 
 import cv2
 
@@ -51,7 +52,9 @@ class CameraMotion:
         Path(self.event_path).mkdir(parents=True, exist_ok=True)
         self.regions = RegionOfInterest.prepare(region_of_interest=self.region_of_interest, width=self.width,
                                                 height=self.height)
-        self.video_stream = cv2.VideoCapture(self.video_url, cv2.CAP_FFMPEG)
+        # self.video_stream = cv2.VideoCapture(self.video_url, cv2.CAP_FFMPEG)
+        self.video_stream = VideoGear(source=self.video_url, stabilize=True).start()
+
         logging.debug(f" For camera {camera_id} with {self.video_url} created")
         time.sleep(1.0)
         logging.debug(f" For camera {camera_id} starting queue processing now.")
@@ -76,9 +79,9 @@ class CameraMotion:
 
     def process(self):
         while not self.stopped:
-            (grabbed, original_frame) = self.video_stream.read()
+            original_frame = self.video_stream.read()
             time.sleep(0.200)
-            if not grabbed:
+            if original_frame is None:
                 # logging.debug(f" For camera {self.camera_id} no more frames, waiting for 2 seconds")
                 time.sleep(2.0)
             else:

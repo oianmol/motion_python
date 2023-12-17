@@ -32,7 +32,7 @@ class CameraMotion:
         self.stopped = False
 
         self.video_start_time = None
-        self.motion_file_processor = MotionFileProcessor()
+        self.motion_file_processor = MotionFileProcessor().start()
 
         self.camera_id = camera_id
         self.area = parser.getint(camera_conf_name, "area")  # Define Min Contour area

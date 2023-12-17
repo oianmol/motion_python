@@ -77,6 +77,7 @@ class CameraMotion:
     def process(self):
         while not self.stopped:
             (grabbed, original_frame) = self.video_stream.read()
+            time.sleep(0.250)
             if not grabbed:
                 # logging.debug(f" For camera {self.camera_id} no more frames, waiting for 2 seconds")
                 time.sleep(2.0)

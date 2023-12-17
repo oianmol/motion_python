@@ -69,10 +69,13 @@ class MotionFileProcessor:
                         (grabbed, original_frame) = self.file_stream.read()
                         time.sleep(0.0002)
                         if grabbed and original_frame is not None:
-                            # final_frame = mog2.apply(original_frame)
+                            frame = cv2.cvtColor(original_frame, cv2.COLOR_BGR2GRAY)
+                            frame = cv2.GaussianBlur(frame, (int(blur), int(blur)), 0)
+                            frame = RegionOfInterest.mask(frame, regions)
+                            final_frame = mog2.apply(frame)
                             # Finding contour of moving object
-                            if original_frame is not None:
-                                contours, _ = cv2.findContours(original_frame.copy(),
+                            if final_frame is not None:
+                                contours, _ = cv2.findContours(final_frame.copy(),
                                                                cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                                 contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
